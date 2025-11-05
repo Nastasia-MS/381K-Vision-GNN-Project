@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Dynamic Hypergraph Model for CIFAR-10 Classification
+Dynamic Hypergraph Model for CIFAR-100 Classification
 Batch-compatible version matching Dynamic_Hypergraph.ipynb
 """
 
@@ -10,7 +10,7 @@ import torch
 import torch.nn as nn
 import torchvision.transforms as T
 import torch.nn.functional as F
-from torchvision.datasets import CIFAR10
+from torchvision.datasets import CIFAR100
 from torch.utils.data import DataLoader
 from torch_geometric.nn import HypergraphConv, AttentionalAggregation
 import matplotlib
@@ -18,7 +18,7 @@ matplotlib.use('Agg')  # Use non-interactive backend for batch jobs
 import matplotlib.pyplot as plt
 import os
 
-print("Starting Dynamic Hypergraph Model for CIFAR-10 Classification")
+print("Starting Dynamic Hypergraph Model for CIFAR-100 Classification")
 
 def image_to_dynamic_hypergraph(images, k_spatial=4, k_feature=4):
     batch_node_feats = []
@@ -98,9 +98,9 @@ def main():
         )
     ])
     
-    print("Loading CIFAR-10 dataset...")
-    train_dataset = CIFAR10(root='./data', train=True, download=True, transform=transform)
-    test_dataset = CIFAR10(root='./data', train=False, download=True, transform=transform)
+    print("Loading CIFAR-100 dataset...")
+    train_dataset = CIFAR100(root='./data', train=True, download=True, transform=transform)
+    test_dataset = CIFAR100(root='./data', train=False, download=True, transform=transform)
 
     print(f"Train dataset shape: {train_dataset.data.shape}")
     train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
@@ -110,7 +110,7 @@ def main():
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     print(f"Using device: {device}")
     
-    model = HyperVigClassifier(in_channels=3*8*8, hidden=256, num_classes=10).to(device)
+    model = HyperVigClassifier(in_channels=3*8*8, hidden=256, num_classes=100).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
     criterion = nn.CrossEntropyLoss()
 

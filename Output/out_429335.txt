@@ -6,3 +6,119 @@ Working Directory: /home1/11112/rasmus1142/381K-Vision-GNN-Project
 ==========================================
 Python 3.9.18
 /home1/11112/rasmus1142/381K-Vision-GNN-Project/venv/bin/python
+Starting Dynamic Hypergraph Model for CIFAR-10 Classification
+Loading CIFAR-10 dataset...
+Train dataset shape: (50000, 32, 32, 3)
+Using device: cpu
+
+Starting training for 100 epochs...
+Epoch 1/100, Loss: 2.08778, Accuracy: 0.23624
+Epoch 2/100, Loss: 1.98061, Accuracy: 0.27780
+Epoch 3/100, Loss: 1.93330, Accuracy: 0.29584
+Epoch 4/100, Loss: 1.90505, Accuracy: 0.30758
+Epoch 5/100, Loss: 1.87854, Accuracy: 0.31818
+Epoch 6/100, Loss: 1.85576, Accuracy: 0.32514
+Epoch 7/100, Loss: 1.83725, Accuracy: 0.33350
+Epoch 8/100, Loss: 1.81813, Accuracy: 0.33820
+Epoch 9/100, Loss: 1.79793, Accuracy: 0.34810
+Epoch 10/100, Loss: 1.78006, Accuracy: 0.35396
+Epoch 11/100, Loss: 1.76485, Accuracy: 0.35982
+Epoch 12/100, Loss: 1.74571, Accuracy: 0.36812
+Epoch 13/100, Loss: 1.72894, Accuracy: 0.37330
+Epoch 14/100, Loss: 1.70777, Accuracy: 0.38412
+Epoch 15/100, Loss: 1.69061, Accuracy: 0.38896
+Epoch 16/100, Loss: 1.67815, Accuracy: 0.39380
+Epoch 17/100, Loss: 1.65823, Accuracy: 0.40106
+Epoch 18/100, Loss: 1.63894, Accuracy: 0.40930
+Epoch 19/100, Loss: 1.61753, Accuracy: 0.41666
+Epoch 20/100, Loss: 1.60216, Accuracy: 0.42150
+Epoch 21/100, Loss: 1.58470, Accuracy: 0.42830
+Epoch 22/100, Loss: 1.56710, Accuracy: 0.43386
+Epoch 23/100, Loss: 1.54964, Accuracy: 0.44126
+Epoch 24/100, Loss: 1.53197, Accuracy: 0.44806
+Epoch 25/100, Loss: 1.51226, Accuracy: 0.45352
+Epoch 26/100, Loss: 1.49566, Accuracy: 0.46290
+Epoch 27/100, Loss: 1.47547, Accuracy: 0.46932
+Epoch 28/100, Loss: 1.46322, Accuracy: 0.47234
+Epoch 29/100, Loss: 1.44416, Accuracy: 0.47964
+Epoch 30/100, Loss: 1.42410, Accuracy: 0.48586
+Epoch 31/100, Loss: 1.40944, Accuracy: 0.49150
+Epoch 32/100, Loss: 1.39492, Accuracy: 0.49948
+Epoch 33/100, Loss: 1.37937, Accuracy: 0.50380
+Epoch 34/100, Loss: 1.36210, Accuracy: 0.51068
+Epoch 35/100, Loss: 1.34688, Accuracy: 0.51628
+Epoch 36/100, Loss: 1.33191, Accuracy: 0.52172
+Epoch 37/100, Loss: 1.32319, Accuracy: 0.52608
+Epoch 38/100, Loss: 1.30697, Accuracy: 0.52784
+Epoch 39/100, Loss: 1.30077, Accuracy: 0.53144
+Epoch 40/100, Loss: 1.28342, Accuracy: 0.53912
+Epoch 41/100, Loss: 1.27120, Accuracy: 0.54126
+Epoch 42/100, Loss: 1.25880, Accuracy: 0.54668
+Epoch 43/100, Loss: 1.24193, Accuracy: 0.55152
+Epoch 44/100, Loss: 1.23517, Accuracy: 0.55612
+Epoch 45/100, Loss: 1.22966, Accuracy: 0.55864
+Epoch 46/100, Loss: 1.21194, Accuracy: 0.56068
+Epoch 47/100, Loss: 1.20893, Accuracy: 0.56554
+Epoch 48/100, Loss: 1.19575, Accuracy: 0.57022
+Epoch 49/100, Loss: 1.18746, Accuracy: 0.57568
+Epoch 50/100, Loss: 1.18303, Accuracy: 0.57712
+Epoch 51/100, Loss: 1.17207, Accuracy: 0.57928
+Epoch 52/100, Loss: 1.16323, Accuracy: 0.58166
+Epoch 53/100, Loss: 1.15462, Accuracy: 0.58684
+Epoch 54/100, Loss: 1.14667, Accuracy: 0.58836
+Epoch 55/100, Loss: 1.13727, Accuracy: 0.59286
+Epoch 56/100, Loss: 1.12809, Accuracy: 0.59520
+Epoch 57/100, Loss: 1.12123, Accuracy: 0.59972
+Epoch 58/100, Loss: 1.11192, Accuracy: 0.60142
+Epoch 59/100, Loss: 1.11035, Accuracy: 0.60092
+Epoch 60/100, Loss: 1.10302, Accuracy: 0.60364
+Epoch 61/100, Loss: 1.09388, Accuracy: 0.60864
+Epoch 62/100, Loss: 1.09125, Accuracy: 0.61048
+Epoch 63/100, Loss: 1.08095, Accuracy: 0.61436
+Epoch 64/100, Loss: 1.09509, Accuracy: 0.60902
+Epoch 65/100, Loss: 1.07835, Accuracy: 0.61582
+Epoch 66/100, Loss: 1.05914, Accuracy: 0.62170
+Epoch 67/100, Loss: 1.06828, Accuracy: 0.61616
+Epoch 68/100, Loss: 1.05444, Accuracy: 0.62164
+Epoch 69/100, Loss: 1.06307, Accuracy: 0.61960
+Epoch 70/100, Loss: 1.05016, Accuracy: 0.62554
+Epoch 71/100, Loss: 1.04287, Accuracy: 0.62742
+Epoch 72/100, Loss: 1.03732, Accuracy: 0.63000
+Epoch 73/100, Loss: 1.03185, Accuracy: 0.63038
+Epoch 74/100, Loss: 1.02559, Accuracy: 0.63404
+Epoch 75/100, Loss: 1.02266, Accuracy: 0.63468
+Epoch 76/100, Loss: 1.02789, Accuracy: 0.63392
+Epoch 77/100, Loss: 1.02703, Accuracy: 0.63712
+Epoch 78/100, Loss: 1.01765, Accuracy: 0.63688
+Epoch 79/100, Loss: 1.01077, Accuracy: 0.63936
+Epoch 80/100, Loss: 1.00639, Accuracy: 0.64168
+Epoch 81/100, Loss: 1.00324, Accuracy: 0.64274
+Epoch 82/100, Loss: 0.99309, Accuracy: 0.64528
+Epoch 83/100, Loss: 0.99725, Accuracy: 0.64402
+Epoch 84/100, Loss: 0.98608, Accuracy: 0.64886
+Epoch 85/100, Loss: 0.98186, Accuracy: 0.64996
+Epoch 86/100, Loss: 0.98445, Accuracy: 0.65046
+Epoch 87/100, Loss: 0.99703, Accuracy: 0.64604
+Epoch 88/100, Loss: 0.97187, Accuracy: 0.65468
+Epoch 89/100, Loss: 0.98022, Accuracy: 0.64996
+Epoch 90/100, Loss: 0.96838, Accuracy: 0.65654
+Epoch 91/100, Loss: 0.96635, Accuracy: 0.65874
+Epoch 92/100, Loss: 0.96732, Accuracy: 0.65380
+Epoch 93/100, Loss: 0.96204, Accuracy: 0.65808
+Epoch 94/100, Loss: 0.94449, Accuracy: 0.66146
+Epoch 95/100, Loss: 0.96027, Accuracy: 0.65722
+Epoch 96/100, Loss: 0.95345, Accuracy: 0.66178
+Epoch 97/100, Loss: 0.94079, Accuracy: 0.66414
+Epoch 98/100, Loss: 0.94485, Accuracy: 0.66500
+Epoch 99/100, Loss: 0.95224, Accuracy: 0.66330
+Epoch 100/100, Loss: 0.95084, Accuracy: 0.66008
+
+Final Training Accuracy: 0.6601 (66.01%)
+Best Training Accuracy: 0.6650 (66.50%) at Epoch 98
+
+Generating training plot...
+Training plot saved to: training_accuracy_plot.png
+==========================================
+End Time: Wed Nov  5 02:56:33 AM CST 2025
+Test completed successfully!
+==========================================

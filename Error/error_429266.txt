@@ -1,0 +1,20 @@
+Running "module reset". Resetting modules to system default. The following $MODULEPATH directories have been removed: None
+Lmod has detected the following error: The following module(s) are unknown:
+"nvhpc/25.9"
+
+Please check the spelling or version number. Also try "module spider ..."
+It is also possible your cache file is out-of-date; it may help to try:
+  $ module --ignore_cache load "nvhpc/25.9"
+
+Also make sure that all modulefiles written in TCL start with the string
+#%Module
+
+
+
+Lmod has detected the following error: These module(s) or extension(s) exist
+but cannot be loaded as requested: "python3/3.11.8"
+   Try: "module spider python3/3.11.8" to see how to load the module(s).
+
+
+
+/var/spool/slurmd/job429266/slurm_script: line 52: nvidia-smi: command not found

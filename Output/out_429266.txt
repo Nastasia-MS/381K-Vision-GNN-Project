@@ -1,0 +1,68 @@
+Activating virtual environment at: /home1/11112/rasmus1142/381K-Vision-GNN-Project/venv
+==========================================
+Job ID: 429266
+Job Name: dynamic_hypergraph_test
+Node(s): i617-004
+Start Time: Tue Nov  4 10:53:13 PM CST 2025
+Working Directory: /home1/11112/rasmus1142/381K-Vision-GNN-Project
+==========================================
+Checking GPU availability...
+==========================================
+Running test.py using virtual environment Python...
+/home1/11112/rasmus1142/381K-Vision-GNN-Project/venv/bin/python
+Python 3.9.18
+============================================================
+Testing Library Imports and Functionality
+============================================================
+
+[1/8] Testing numpy...
+  ✓ numpy imported successfully (version: 2.0.2)
+  ✓ numpy test array: [1 2 3]
+
+[2/8] Testing torch...
+  ✓ torch imported successfully (version: 2.8.0+cpu)
+  ✓ CUDA available: False
+  ✓ torch test tensor shape: torch.Size([2, 3])
+
+[3/8] Testing torch.nn...
+  ✓ torch.nn imported successfully
+  ✓ Created Linear layer: Linear(in_features=10, out_features=5, bias=True)
+
+[4/8] Testing torchvision.transforms...
+  ✓ torchvision.transforms imported successfully
+  ✓ Created ToTensor transform: ToTensor()
+
+[5/8] Testing torch.nn.functional...
+  ✓ torch.nn.functional imported successfully
+  ✓ ReLU test: input shape torch.Size([2, 3]), output shape torch.Size([2, 3])
+
+[6/8] Testing torchvision.datasets...
+  ✓ torchvision.datasets imported successfully
+  ✓ CIFAR10 dataset class available
+
+[7/8] Testing torch.utils.data...
+  ✓ torch.utils.data imported successfully
+  ✓ DataLoader class available
+
+[8/8] Testing torch_geometric...
+  ✓ torch_geometric imported successfully
+  ✓ HypergraphConv available: <class 'torch_geometric.nn.conv.hypergraph_conv.HypergraphConv'>
+  ✓ AttentionalAggregation available: <class 'torch_geometric.nn.aggr.attention.AttentionalAggregation'>
+  ✓ Created HypergraphConv layer: HypergraphConv(64, 32)
+
+[9/9] Testing matplotlib...
+  ✓ matplotlib imported successfully
+  ✓ matplotlib backend: Agg
+  ✓ Successfully created test plot: test_plot.png
+
+============================================================
+✓ ALL TESTS PASSED!
+============================================================
+
+All required libraries are working correctly.
+You can now run dynamic_hypergraph_edge_attention.py
+============================================================
+==========================================
+End Time: Tue Nov  4 10:53:25 PM CST 2025
+Test completed successfully!
+==========================================

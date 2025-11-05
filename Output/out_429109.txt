@@ -1,0 +1,17 @@
+Job ID: 429109
+Job Name: dynamic_hypergraph_test
+Node: c608-081
+Start Time: Tue Nov  4 10:30:31 PM CST 2025
+Working Directory: /home1/11112/rasmus1142/381K-Vision-GNN-Project
+============================================================
+Testing Library Imports and Functionality
+============================================================
+
+[1/8] Testing numpy...
+  ✓ numpy imported successfully (version: 1.20.1)
+  ✓ numpy test array: [1 2 3]
+
+[2/8] Testing torch...
+  ✗ torch failed: No module named 'torch'
+End Time: Tue Nov  4 10:30:31 PM CST 2025
+Test completed!

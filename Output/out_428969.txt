@@ -1,0 +1,7 @@
+Job ID: 428969
+Job Name: dynamic_hypergraph_test
+Node: c608-041
+Start Time: Tue Nov  4 10:13:01 PM CST 2025
+Working Directory: /home1/11112/rasmus1142/381K-Vision-GNN-Project/SBatch
+End Time: Tue Nov  4 10:13:01 PM CST 2025
+Test completed!

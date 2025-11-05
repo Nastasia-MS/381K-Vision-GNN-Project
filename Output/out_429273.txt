@@ -1,0 +1,8 @@
+==========================================
+Job ID: 429273
+Node(s): i614-021
+Start Time: Tue Nov  4 11:06:28 PM CST 2025
+Working Directory: /home1/11112/rasmus1142/381K-Vision-GNN-Project
+==========================================
+Python 3.9.18
+/home1/11112/rasmus1142/381K-Vision-GNN-Project/venv/bin/python

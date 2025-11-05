@@ -1,0 +1,13 @@
+Lmod has detected the following error: The following module(s) are unknown:
+"intel/19.1.1"
+
+Please check the spelling or version number. Also try "module spider ..."
+It is also possible your cache file is out-of-date; it may help to try:
+  $ module --ignore_cache load "intel/19.1.1"
+
+Also make sure that all modulefiles written in TCL start with the string
+#%Module
+
+
+
+python: can't open file '/home1/11112/rasmus1142/381K-Vision-GNN-Project/SBatch/test.py': [Errno 2] No such file or directory

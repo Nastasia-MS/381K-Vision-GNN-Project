@@ -119,7 +119,7 @@ def main():
     train_losses = []
 
     # Training loop
-    num_epochs = 100
+    num_epochs = 300
     print(f"\nStarting training for {num_epochs} epochs...")
     
     for epoch in range(num_epochs):

@@ -7,26 +7,28 @@ Original file is located at
     https://colab.research.google.com/drive/1HvCUphCF-PAsJrY7090_HjtdZEPybaKT
 """
 
-!pip install torch-geometric
-
 import numpy as np
 import torch
 import torch.nn as nn
 import torchvision.transforms as T
 import torch.nn.functional as F
-from torchvision.datasets import CIFAR10
+from torchvision.datasets import CIFAR100
 from torch.utils.data import DataLoader
 from torch_geometric.nn import HypergraphConv, AttentionalAggregation
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend for SSH
+import matplotlib.pyplot as plt
 
+# CIFAR-100 normalization values
 transform = T.Compose([
     T.ToTensor(),
     T.Normalize(
-        mean=[0.4914, 0.4822, 0.4465],
-        std=[0.2470, 0.2435, 0.2616]
+        mean=[0.5071, 0.4867, 0.4408],
+        std=[0.2675, 0.2565, 0.2761]
     )
     ])
-train_dataset = CIFAR10(root='./data', train=True, download=True, transform=transform)
-test_dataset = CIFAR10(root='./data', train=False, download=True, transform=transform)
+train_dataset = CIFAR100(root='./data', train=True, download=True, transform=transform)
+test_dataset = CIFAR100(root='./data', train=False, download=True, transform=transform)
 
 print(train_dataset.data.shape)
 train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
@@ -126,13 +128,22 @@ class HyperVigClassifier(nn.Module):
     return self.classifier(out)
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-model = HyperVigClassifier(in_channels=3*8*8, hidden=256, num_classes=10).to(device)
+model = HyperVigClassifier(in_channels=3*8*8, hidden=256, num_classes=100).to(device)
 edge_attn = EdgeAttention(in_dim=3*8*8, hidden=64).to(device)
 optimizer = torch.optim.Adam(list(model.parameters()) + list(edge_attn.parameters()), lr=0.001)
 criterion = nn.CrossEntropyLoss()
 
-for epoch in range(100):
+# Lists to store metrics for plotting
+train_losses = []
+train_accuracies = []
+test_losses = []
+test_accuracies = []
+
+num_epochs = 100
+for epoch in range(num_epochs):
+  # Training phase
   model.train()
+  edge_attn.train()
   total_loss = 0
   correct = 0
   total = 0
@@ -151,4 +162,62 @@ for epoch in range(100):
     total += labels.size(0)
     correct += (predicted == labels).sum().item()
 
-  print(f"Epoch {epoch+1}, Loss: {total_loss/total}, Accuracy: {correct/total}")
+  train_loss = total_loss / total
+  train_acc = correct / total
+  train_losses.append(train_loss)
+  train_accuracies.append(train_acc)
+
+  # Testing phase
+  model.eval()
+  edge_attn.eval()
+  test_loss = 0
+  test_correct = 0
+  test_total = 0
+  with torch.no_grad():
+    for images, labels in test_loader:
+      images, labels = images.to(device), labels.to(device)
+      node_feats, edge_index, edge_weight, batch_map = image_to_dynamic_hypergraph_edge_attention(images, edge_attn=edge_attn)
+      outputs = model(node_feats, edge_index, edge_weight, batch_map)
+      loss = criterion(outputs, labels)
+      
+      test_loss += loss.item() * images.size(0)
+      _, predicted = outputs.max(1)
+      test_total += labels.size(0)
+      test_correct += (predicted == labels).sum().item()
+
+  test_loss = test_loss / test_total
+  test_acc = test_correct / test_total
+  test_losses.append(test_loss)
+  test_accuracies.append(test_acc)
+
+  print(f"Epoch {epoch+1}/{num_epochs}")
+  print(f"  Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f}")
+  print(f"  Test Loss: {test_loss:.4f}, Test Acc: {test_acc:.4f}")
+
+# Plotting
+plt.figure(figsize=(12, 5))
+
+# Plot loss
+plt.subplot(1, 2, 1)
+plt.plot(range(1, num_epochs + 1), train_losses, label='Train Loss', marker='o')
+plt.plot(range(1, num_epochs + 1), test_losses, label='Test Loss', marker='s')
+plt.xlabel('Epoch')
+plt.ylabel('Loss')
+plt.title('Training and Test Loss')
+plt.legend()
+plt.grid(True)
+
+# Plot accuracy
+plt.subplot(1, 2, 2)
+plt.plot(range(1, num_epochs + 1), train_accuracies, label='Train Accuracy', marker='o')
+plt.plot(range(1, num_epochs + 1), test_accuracies, label='Test Accuracy', marker='s')
+plt.xlabel('Epoch')
+plt.ylabel('Accuracy')
+plt.title('Training and Test Accuracy')
+plt.legend()
+plt.grid(True)
+
+plt.tight_layout()
+plt.savefig('training_curves.png', dpi=150, bbox_inches='tight')
+print(f"\nTraining curves saved to 'training_curves.png'")
+plt.close()  # Close the figure to free memory

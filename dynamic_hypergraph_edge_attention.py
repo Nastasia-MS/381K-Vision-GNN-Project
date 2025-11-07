@@ -183,7 +183,7 @@ train_accuracies = []
 test_losses = []
 test_accuracies = []
 
-num_epochs = 100
+num_epochs = 200
 for epoch in range(num_epochs):
   # Training phase
   model.train()

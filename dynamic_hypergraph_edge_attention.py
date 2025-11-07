@@ -92,11 +92,13 @@ def image_to_dynamic_hypergraph_edge_attention(images, k_spatial=4, k_feature=4,
     return x, edge_index, edge_weight, batch_map
 
 class EdgeAttention(nn.Module):
-  def __init__(self, in_dim, hidden=64):
+  def __init__(self, in_dim, hidden=64, dropout=0.1):
     super().__init__()
     self.mlp = nn.Sequential(
         nn.Linear(in_dim*2, hidden),
+        nn.BatchNorm1d(hidden),
         nn.ReLU(),
+        nn.Dropout(dropout),
         nn.Linear(hidden, 1)
     )
 
@@ -107,24 +109,66 @@ class EdgeAttention(nn.Module):
     return torch.sigmoid(alpha)
 
 class HyperVigClassifier(nn.Module):
-  def __init__(self, in_channels, hidden, num_classes):
+  def __init__(self, in_channels, hidden, num_classes, dropout=0.1):
     super().__init__()
     self.input_proj = nn.Linear(in_channels, hidden)
+    self.input_bn = nn.BatchNorm1d(hidden)
+    self.input_dropout = nn.Dropout(dropout)
+    
     self.conv1 = HypergraphConv(hidden, hidden)
+    self.ln1 = nn.LayerNorm(hidden)
+    self.dropout1 = nn.Dropout(dropout)
+    
     self.conv2 = HypergraphConv(hidden, hidden)
+    self.ln2 = nn.LayerNorm(hidden)
+    self.dropout2 = nn.Dropout(dropout)
+    
     self.conv3 = HypergraphConv(hidden, hidden)
-    self.norm3 = nn.LayerNorm(hidden)
+    self.ln3 = nn.LayerNorm(hidden)
+    self.dropout3 = nn.Dropout(dropout)
 
-    self.pool = AttentionalAggregation(gate_nn=nn.Sequential(nn.Linear(hidden, hidden), nn.ReLU(), nn.Linear(hidden, 1)))
+    self.pool = AttentionalAggregation(gate_nn=nn.Sequential(
+        nn.Linear(hidden, hidden), 
+        nn.BatchNorm1d(hidden),
+        nn.ReLU(), 
+        nn.Dropout(dropout),
+        nn.Linear(hidden, 1)
+    ))
+    self.classifier_dropout = nn.Dropout(dropout)
     self.classifier = nn.Linear(hidden, num_classes)
 
   def forward(self, x, edge_index, edge_weight, batch_map):
     x = self.input_proj(x)  # match dimensions (192 -> 256)
-    for conv in [self.conv1, self.conv2, self.conv3]:
-        x_res = x
-        x = F.relu(conv(x, edge_index, edge_weight))
-        x = x + x_res  # residual
+    x = self.input_bn(x)
+    x = F.relu(x)
+    x = self.input_dropout(x)
+    
+    # First conv block
+    x_res = x
+    x = self.conv1(x, edge_index, edge_weight)
+    x = self.ln1(x)
+    x = F.relu(x)
+    x = self.dropout1(x)
+    x = x + x_res  # residual
+    
+    # Second conv block
+    x_res = x
+    x = self.conv2(x, edge_index, edge_weight)
+    x = self.ln2(x)
+    x = F.relu(x)
+    x = self.dropout2(x)
+    x = x + x_res  # residual
+    
+    # Third conv block
+    x_res = x
+    x = self.conv3(x, edge_index, edge_weight)
+    x = self.ln3(x)
+    x = F.relu(x)
+    x = self.dropout3(x)
+    x = x + x_res  # residual
+    
     out = self.pool(x, batch_map)
+    out = self.classifier_dropout(out)
     return self.classifier(out)
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'

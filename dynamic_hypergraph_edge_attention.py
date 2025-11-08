@@ -92,7 +92,7 @@ def image_to_dynamic_hypergraph_edge_attention(images, k_spatial=4, k_feature=4,
     return x, edge_index, edge_weight, batch_map
 
 class EdgeAttention(nn.Module):
-  def __init__(self, in_dim, hidden=64, dropout=0.1):
+  def __init__(self, in_dim, hidden=64, dropout=0.15):
     super().__init__()
     self.mlp = nn.Sequential(
         nn.Linear(in_dim*2, hidden),
@@ -109,32 +109,32 @@ class EdgeAttention(nn.Module):
     return torch.sigmoid(alpha)
 
 class HyperVigClassifier(nn.Module):
-  def __init__(self, in_channels, hidden, num_classes, dropout=0.1):
+  def __init__(self, in_channels, hidden, num_classes, dropout=0.3, dropout_input=0.1, dropout_conv=0.25, dropout_classifier=0.4):
     super().__init__()
     self.input_proj = nn.Linear(in_channels, hidden)
     self.input_bn = nn.BatchNorm1d(hidden)
-    self.input_dropout = nn.Dropout(dropout)
+    self.input_dropout = nn.Dropout(dropout_input)
     
     self.conv1 = HypergraphConv(hidden, hidden)
     self.ln1 = nn.LayerNorm(hidden)
-    self.dropout1 = nn.Dropout(dropout)
+    self.dropout1 = nn.Dropout(dropout_conv)
     
     self.conv2 = HypergraphConv(hidden, hidden)
     self.ln2 = nn.LayerNorm(hidden)
-    self.dropout2 = nn.Dropout(dropout)
+    self.dropout2 = nn.Dropout(dropout_conv)
     
     self.conv3 = HypergraphConv(hidden, hidden)
     self.ln3 = nn.LayerNorm(hidden)
-    self.dropout3 = nn.Dropout(dropout)
+    self.dropout3 = nn.Dropout(dropout_conv)
 
     self.pool = AttentionalAggregation(gate_nn=nn.Sequential(
         nn.Linear(hidden, hidden), 
         nn.BatchNorm1d(hidden),
         nn.ReLU(), 
-        nn.Dropout(dropout),
+        nn.Dropout(dropout_conv),
         nn.Linear(hidden, 1)
     ))
-    self.classifier_dropout = nn.Dropout(dropout)
+    self.classifier_dropout = nn.Dropout(dropout_classifier)
     self.classifier = nn.Linear(hidden, num_classes)
 
   def forward(self, x, edge_index, edge_weight, batch_map):
@@ -172,8 +172,9 @@ class HyperVigClassifier(nn.Module):
     return self.classifier(out)
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-model = HyperVigClassifier(in_channels=3*8*8, hidden=256, num_classes=100).to(device)
-edge_attn = EdgeAttention(in_dim=3*8*8, hidden=64).to(device)
+model = HyperVigClassifier(in_channels=3*8*8, hidden=256, num_classes=100, 
+                          dropout=0.3, dropout_input=0.1, dropout_conv=0.25, dropout_classifier=0.4).to(device)
+edge_attn = EdgeAttention(in_dim=3*8*8, hidden=64, dropout=0.15).to(device)
 optimizer = torch.optim.Adam(list(model.parameters()) + list(edge_attn.parameters()), lr=0.001)
 criterion = nn.CrossEntropyLoss()
 
@@ -183,7 +184,7 @@ train_accuracies = []
 test_losses = []
 test_accuracies = []
 
-num_epochs = 200
+num_epochs = 150
 for epoch in range(num_epochs):
   # Training phase
   model.train()

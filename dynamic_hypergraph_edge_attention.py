@@ -7,7 +7,7 @@ Original file is located at
     https://colab.research.google.com/drive/1HvCUphCF-PAsJrY7090_HjtdZEPybaKT
 """
 
-!pip install torch-geometric
+# pip install torch-geometric  # Commented out - for Colab use only, not needed in regular Python scripts
 
 import numpy as np
 import torch
@@ -130,9 +130,11 @@ class HyperVigClassifier(nn.Module):
 
   def forward(self, x, edge_index, edge_weight, batch_map):
     x = self.input_proj(x)  # match dimensions (192 -> 256)
-    for conv in [self.conv1, self.conv2, self.conv3]:
+    for conv, norm in [(self.conv1, self.norm1), (self.conv2, self.norm2), (self.conv3, self.norm3)]:
         x_res = x
-        x = self.dropout(F.relu(self.conv1(x, edge_index, edge_weight))) + x_res
+        x = conv(x, edge_index, edge_weight)
+        x = norm(x)
+        x = self.dropout(F.relu(x)) + x_res
     x = self.ff(x)
     out = self.pool(x, batch_map)
     return self.classifier(out)

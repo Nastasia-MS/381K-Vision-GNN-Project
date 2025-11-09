@@ -7,28 +7,26 @@ Original file is located at
     https://colab.research.google.com/drive/1HvCUphCF-PAsJrY7090_HjtdZEPybaKT
 """
 
+!pip install torch-geometric
+
 import numpy as np
 import torch
 import torch.nn as nn
 import torchvision.transforms as T
 import torch.nn.functional as F
-from torchvision.datasets import CIFAR100
+from torchvision.datasets import CIFAR10
 from torch.utils.data import DataLoader
 from torch_geometric.nn import HypergraphConv, AttentionalAggregation
-import matplotlib
-matplotlib.use('Agg')  # Use non-interactive backend for SSH
-import matplotlib.pyplot as plt
 
-# CIFAR-100 normalization values
 transform = T.Compose([
     T.ToTensor(),
     T.Normalize(
-        mean=[0.5071, 0.4867, 0.4408],
-        std=[0.2675, 0.2565, 0.2761]
+        mean=[0.4914, 0.4822, 0.4465],
+        std=[0.2470, 0.2435, 0.2616]
     )
     ])
-train_dataset = CIFAR100(root='./data', train=True, download=True, transform=transform)
-test_dataset = CIFAR100(root='./data', train=False, download=True, transform=transform)
+train_dataset = CIFAR10(root='./data', train=True, download=True, transform=transform)
+test_dataset = CIFAR10(root='./data', train=False, download=True, transform=transform)
 
 print(train_dataset.data.shape)
 train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
@@ -92,13 +90,11 @@ def image_to_dynamic_hypergraph_edge_attention(images, k_spatial=4, k_feature=4,
     return x, edge_index, edge_weight, batch_map
 
 class EdgeAttention(nn.Module):
-  def __init__(self, in_dim, hidden=64, dropout=0.15):
+  def __init__(self, in_dim, hidden=64):
     super().__init__()
     self.mlp = nn.Sequential(
         nn.Linear(in_dim*2, hidden),
-        nn.BatchNorm1d(hidden),
         nn.ReLU(),
-        nn.Dropout(dropout),
         nn.Linear(hidden, 1)
     )
 
@@ -109,86 +105,46 @@ class EdgeAttention(nn.Module):
     return torch.sigmoid(alpha)
 
 class HyperVigClassifier(nn.Module):
-  def __init__(self, in_channels, hidden, num_classes, dropout=0.3, dropout_input=0.1, dropout_conv=0.25, dropout_classifier=0.4):
+  def __init__(self, in_channels, hidden, num_classes):
     super().__init__()
     self.input_proj = nn.Linear(in_channels, hidden)
-    self.input_bn = nn.BatchNorm1d(hidden)
-    self.input_dropout = nn.Dropout(dropout_input)
-    
     self.conv1 = HypergraphConv(hidden, hidden)
-    self.ln1 = nn.LayerNorm(hidden)
-    self.dropout1 = nn.Dropout(dropout_conv)
-    
+    self.norm1 = nn.LayerNorm(hidden)
+    self.dropout = nn.Dropout(0.3)
     self.conv2 = HypergraphConv(hidden, hidden)
-    self.ln2 = nn.LayerNorm(hidden)
-    self.dropout2 = nn.Dropout(dropout_conv)
-    
+    self.norm2 = nn.LayerNorm(hidden)
+    self.dropout = nn.Dropout(0.3)
     self.conv3 = HypergraphConv(hidden, hidden)
-    self.ln3 = nn.LayerNorm(hidden)
-    self.dropout3 = nn.Dropout(dropout_conv)
+    self.norm3 = nn.LayerNorm(hidden)
+    self.dropout = nn.Dropout(0.3)
+    #self.conv4 = HypergraphConv(hidden, hidden)
+    #self.norm4 = nn.LayerNorm(hidden)
+    self.ff = nn.Sequential(
+    nn.Linear(hidden, hidden * 4),
+    nn.ReLU(),
+    nn.Linear(hidden * 4, hidden)
+    )
 
-    self.pool = AttentionalAggregation(gate_nn=nn.Sequential(
-        nn.Linear(hidden, hidden), 
-        nn.BatchNorm1d(hidden),
-        nn.ReLU(), 
-        nn.Dropout(dropout_conv),
-        nn.Linear(hidden, 1)
-    ))
-    self.classifier_dropout = nn.Dropout(dropout_classifier)
+    self.pool = AttentionalAggregation(gate_nn=nn.Sequential(nn.Linear(hidden, hidden), nn.ReLU(), nn.Linear(hidden, 1)))
     self.classifier = nn.Linear(hidden, num_classes)
 
   def forward(self, x, edge_index, edge_weight, batch_map):
     x = self.input_proj(x)  # match dimensions (192 -> 256)
-    x = self.input_bn(x)
-    x = F.relu(x)
-    x = self.input_dropout(x)
-    
-    # First conv block
-    x_res = x
-    x = self.conv1(x, edge_index, edge_weight)
-    x = self.ln1(x)
-    x = F.relu(x)
-    x = self.dropout1(x)
-    x = x + x_res  # residual
-    
-    # Second conv block
-    x_res = x
-    x = self.conv2(x, edge_index, edge_weight)
-    x = self.ln2(x)
-    x = F.relu(x)
-    x = self.dropout2(x)
-    x = x + x_res  # residual
-    
-    # Third conv block
-    x_res = x
-    x = self.conv3(x, edge_index, edge_weight)
-    x = self.ln3(x)
-    x = F.relu(x)
-    x = self.dropout3(x)
-    x = x + x_res  # residual
-    
+    for conv in [self.conv1, self.conv2, self.conv3]:
+        x_res = x
+        x = self.dropout(F.relu(self.conv1(x, edge_index, edge_weight))) + x_res
+    x = self.ff(x)
     out = self.pool(x, batch_map)
-    out = self.classifier_dropout(out)
     return self.classifier(out)
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-model = HyperVigClassifier(in_channels=3*8*8, hidden=256, num_classes=100, 
-                          dropout=0.3, dropout_input=0.1, dropout_conv=0.25, dropout_classifier=0.4).to(device)
-edge_attn = EdgeAttention(in_dim=3*8*8, hidden=64, dropout=0.15).to(device)
+model = HyperVigClassifier(in_channels=3*8*8, hidden=256, num_classes=10).to(device)
+edge_attn = EdgeAttention(in_dim=3*8*8, hidden=64).to(device)
 optimizer = torch.optim.Adam(list(model.parameters()) + list(edge_attn.parameters()), lr=0.001)
 criterion = nn.CrossEntropyLoss()
 
-# Lists to store metrics for plotting
-train_losses = []
-train_accuracies = []
-test_losses = []
-test_accuracies = []
-
-num_epochs = 150
-for epoch in range(num_epochs):
-  # Training phase
+for epoch in range(100):
   model.train()
-  edge_attn.train()
   total_loss = 0
   correct = 0
   total = 0
@@ -207,62 +163,4 @@ for epoch in range(num_epochs):
     total += labels.size(0)
     correct += (predicted == labels).sum().item()
 
-  train_loss = total_loss / total
-  train_acc = correct / total
-  train_losses.append(train_loss)
-  train_accuracies.append(train_acc)
-
-  # Testing phase
-  model.eval()
-  edge_attn.eval()
-  test_loss = 0
-  test_correct = 0
-  test_total = 0
-  with torch.no_grad():
-    for images, labels in test_loader:
-      images, labels = images.to(device), labels.to(device)
-      node_feats, edge_index, edge_weight, batch_map = image_to_dynamic_hypergraph_edge_attention(images, edge_attn=edge_attn)
-      outputs = model(node_feats, edge_index, edge_weight, batch_map)
-      loss = criterion(outputs, labels)
-      
-      test_loss += loss.item() * images.size(0)
-      _, predicted = outputs.max(1)
-      test_total += labels.size(0)
-      test_correct += (predicted == labels).sum().item()
-
-  test_loss = test_loss / test_total
-  test_acc = test_correct / test_total
-  test_losses.append(test_loss)
-  test_accuracies.append(test_acc)
-
-  print(f"Epoch {epoch+1}/{num_epochs}")
-  print(f"  Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f}")
-  print(f"  Test Loss: {test_loss:.4f}, Test Acc: {test_acc:.4f}")
-
-# Plotting
-plt.figure(figsize=(12, 5))
-
-# Plot loss
-plt.subplot(1, 2, 1)
-plt.plot(range(1, num_epochs + 1), train_losses, label='Train Loss', marker='o')
-plt.plot(range(1, num_epochs + 1), test_losses, label='Test Loss', marker='s')
-plt.xlabel('Epoch')
-plt.ylabel('Loss')
-plt.title('Training and Test Loss')
-plt.legend()
-plt.grid(True)
-
-# Plot accuracy
-plt.subplot(1, 2, 2)
-plt.plot(range(1, num_epochs + 1), train_accuracies, label='Train Accuracy', marker='o')
-plt.plot(range(1, num_epochs + 1), test_accuracies, label='Test Accuracy', marker='s')
-plt.xlabel('Epoch')
-plt.ylabel('Accuracy')
-plt.title('Training and Test Accuracy')
-plt.legend()
-plt.grid(True)
-
-plt.tight_layout()
-plt.savefig('training_curves.png', dpi=150, bbox_inches='tight')
-print(f"\nTraining curves saved to 'training_curves.png'")
-plt.close()  # Close the figure to free memory
+  print(f"Epoch {epoch+1}, Loss: {total_loss/total}, Accuracy: {correct/total}")

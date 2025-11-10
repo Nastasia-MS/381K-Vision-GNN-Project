@@ -17,6 +17,9 @@ import torch.nn.functional as F
 from torchvision.datasets import CIFAR10
 from torch.utils.data import DataLoader
 from torch_geometric.nn import HypergraphConv, AttentionalAggregation
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend for SSH
+import matplotlib.pyplot as plt
 
 transform = T.Compose([
     T.ToTensor(),
@@ -95,14 +98,26 @@ class EdgeAttention(nn.Module):
     self.mlp = nn.Sequential(
         nn.Linear(in_dim*2, hidden),
         nn.ReLU(),
+        nn.Dropout(0.1),
         nn.Linear(hidden, 1)
     )
+    # Initialize weights properly
+    self._init_weights()
+
+  def _init_weights(self):
+    for m in self.modules():
+      if isinstance(m, nn.Linear):
+        nn.init.xavier_uniform_(m.weight, gain=0.1)
+        if m.bias is not None:
+          nn.init.constant_(m.bias, 0)
 
   def forward(self, x, edge_index):
     row, col = edge_index
     feats = torch.cat([x[row], x[col]], dim=1)
     alpha = self.mlp(feats).squeeze()
-    return torch.sigmoid(alpha)
+    # Clamp to prevent extreme values
+    alpha = torch.clamp(torch.sigmoid(alpha), min=0.01, max=0.99)
+    return alpha
 
 class HyperVigClassifier(nn.Module):
   def __init__(self, in_channels, hidden, num_classes):
@@ -110,31 +125,51 @@ class HyperVigClassifier(nn.Module):
     self.input_proj = nn.Linear(in_channels, hidden)
     self.conv1 = HypergraphConv(hidden, hidden)
     self.norm1 = nn.LayerNorm(hidden)
-    self.dropout = nn.Dropout(0.3)
     self.conv2 = HypergraphConv(hidden, hidden)
     self.norm2 = nn.LayerNorm(hidden)
-    self.dropout = nn.Dropout(0.3)
     self.conv3 = HypergraphConv(hidden, hidden)
     self.norm3 = nn.LayerNorm(hidden)
     self.dropout = nn.Dropout(0.3)
-    #self.conv4 = HypergraphConv(hidden, hidden)
-    #self.norm4 = nn.LayerNorm(hidden)
+    
+    # More stable feedforward layer
     self.ff = nn.Sequential(
-    nn.Linear(hidden, hidden * 4),
-    nn.ReLU(),
-    nn.Linear(hidden * 4, hidden)
+        nn.Linear(hidden, hidden * 2),
+        nn.LayerNorm(hidden * 2),
+        nn.ReLU(),
+        nn.Dropout(0.2),
+        nn.Linear(hidden * 2, hidden)
     )
 
-    self.pool = AttentionalAggregation(gate_nn=nn.Sequential(nn.Linear(hidden, hidden), nn.ReLU(), nn.Linear(hidden, 1)))
+    self.pool = AttentionalAggregation(gate_nn=nn.Sequential(
+        nn.Linear(hidden, hidden), 
+        nn.ReLU(), 
+        nn.Dropout(0.1),
+        nn.Linear(hidden, 1)
+    ))
     self.classifier = nn.Linear(hidden, num_classes)
+    
+    # Initialize weights properly
+    self._init_weights()
+
+  def _init_weights(self):
+    for m in self.modules():
+      if isinstance(m, nn.Linear):
+        nn.init.xavier_uniform_(m.weight, gain=0.1)
+        if m.bias is not None:
+          nn.init.constant_(m.bias, 0)
 
   def forward(self, x, edge_index, edge_weight, batch_map):
     x = self.input_proj(x)  # match dimensions (192 -> 256)
+    
     for conv, norm in [(self.conv1, self.norm1), (self.conv2, self.norm2), (self.conv3, self.norm3)]:
         x_res = x
         x = conv(x, edge_index, edge_weight)
         x = norm(x)
-        x = self.dropout(F.relu(x)) + x_res
+        x = F.relu(x)
+        x = self.dropout(x) + x_res
+        # Clamp to prevent extreme values
+        x = torch.clamp(x, min=-10, max=10)
+    
     x = self.ff(x)
     out = self.pool(x, batch_map)
     return self.classifier(out)
@@ -142,14 +177,31 @@ class HyperVigClassifier(nn.Module):
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 model = HyperVigClassifier(in_channels=3*8*8, hidden=256, num_classes=10).to(device)
 edge_attn = EdgeAttention(in_dim=3*8*8, hidden=64).to(device)
-optimizer = torch.optim.Adam(list(model.parameters()) + list(edge_attn.parameters()), lr=0.001)
+
+# Lower learning rate and add weight decay for stability
+optimizer = torch.optim.Adam(list(model.parameters()) + list(edge_attn.parameters()), 
+                            lr=0.0005, weight_decay=1e-5)
+# Add learning rate scheduler
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5, verbose=True)
 criterion = nn.CrossEntropyLoss()
+
+best_loss = float('inf')
+patience_counter = 0
+max_patience = 10
+
+# Lists to store metrics for plotting
+train_losses = []
+train_accuracies = []
+test_losses = []
+test_accuracies = []
 
 for epoch in range(100):
   model.train()
+  edge_attn.train()  # Set edge attention to train mode
   total_loss = 0
   correct = 0
   total = 0
+  
   for images, labels in train_loader:
     images, labels = images.to(device), labels.to(device)
     node_feats, edge_index, edge_weight, batch_map = image_to_dynamic_hypergraph_edge_attention(images, edge_attn=edge_attn)
@@ -157,12 +209,99 @@ for epoch in range(100):
     optimizer.zero_grad()
     outputs = model(node_feats, edge_index, edge_weight, batch_map)
     loss = criterion(outputs, labels)
+    
+    # Check for NaN before backward
+    if torch.isnan(loss):
+      print(f"NaN detected at epoch {epoch+1}, stopping training")
+      break
+    
     loss.backward()
+    
+    # Gradient clipping to prevent explosion
+    torch.nn.utils.clip_grad_norm_(list(model.parameters()) + list(edge_attn.parameters()), max_norm=1.0)
+    
     optimizer.step()
 
     total_loss += loss.item() * images.size(0)
     _, predicted = outputs.max(1)
     total += labels.size(0)
     correct += (predicted == labels).sum().item()
+  
+  # Check for NaN in accumulated loss
+  if total > 0:
+    avg_loss = total_loss / total
+    if torch.isnan(torch.tensor(avg_loss)) or np.isnan(avg_loss):
+      print(f"NaN detected in average loss at epoch {epoch+1}, stopping training")
+      break
+    
+    train_loss = avg_loss
+    train_acc = correct / total
+    train_losses.append(train_loss)
+    train_accuracies.append(train_acc)
+    
+    # Testing phase
+    model.eval()
+    edge_attn.eval()
+    test_loss = 0
+    test_correct = 0
+    test_total = 0
+    with torch.no_grad():
+      for images, labels in test_loader:
+        images, labels = images.to(device), labels.to(device)
+        node_feats, edge_index, edge_weight, batch_map = image_to_dynamic_hypergraph_edge_attention(images, edge_attn=edge_attn)
+        outputs = model(node_feats, edge_index, edge_weight, batch_map)
+        loss = criterion(outputs, labels)
+        
+        test_loss += loss.item() * images.size(0)
+        _, predicted = outputs.max(1)
+        test_total += labels.size(0)
+        test_correct += (predicted == labels).sum().item()
+    
+    test_loss = test_loss / test_total
+    test_acc = test_correct / test_total
+    test_losses.append(test_loss)
+    test_accuracies.append(test_acc)
+    
+    scheduler.step(avg_loss)
+    print(f"Epoch {epoch+1}, Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f}, Test Loss: {test_loss:.4f}, Test Acc: {test_acc:.4f}, LR: {optimizer.param_groups[0]['lr']:.6f}")
+    
+    # Early stopping if loss improves
+    if avg_loss < best_loss:
+      best_loss = avg_loss
+      patience_counter = 0
+    else:
+      patience_counter += 1
+      if patience_counter >= max_patience:
+        print(f"Early stopping at epoch {epoch+1}")
+        break
+  else:
+    print(f"Epoch {epoch+1}, No valid batches processed")
+    break
 
-  print(f"Epoch {epoch+1}, Loss: {total_loss/total}, Accuracy: {correct/total}")
+# Plotting
+plt.figure(figsize=(12, 5))
+
+# Plot loss
+plt.subplot(1, 2, 1)
+plt.plot(range(1, len(train_losses) + 1), train_losses, label='Train Loss', marker='o')
+plt.plot(range(1, len(test_losses) + 1), test_losses, label='Test Loss', marker='s')
+plt.xlabel('Epoch')
+plt.ylabel('Loss')
+plt.title('Training and Test Loss')
+plt.legend()
+plt.grid(True)
+
+# Plot accuracy
+plt.subplot(1, 2, 2)
+plt.plot(range(1, len(train_accuracies) + 1), train_accuracies, label='Train Accuracy', marker='o')
+plt.plot(range(1, len(test_accuracies) + 1), test_accuracies, label='Test Accuracy', marker='s')
+plt.xlabel('Epoch')
+plt.ylabel('Accuracy')
+plt.title('Training and Test Accuracy')
+plt.legend()
+plt.grid(True)
+
+plt.tight_layout()
+plt.savefig('training_curves.png', dpi=150, bbox_inches='tight')
+print(f"\nTraining curves saved to 'training_curves.png'")
+plt.close()  # Close the figure to free memory

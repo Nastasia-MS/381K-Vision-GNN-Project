@@ -54,9 +54,13 @@ def image_to_dynamic_hypergraph_edge_attention(images, k_spatial=4, k_feature=4,
         node_feats = patches.view(patches.size(0), -1).to(images.device)  # [num_nodes, 192]
         num_nodes = node_feats.size(0)
 
-        # Spatial eges (static)
+        # Spatial edges (static)
         spatial_edges = []
-        coords = torch.tensor([[i // (W // patch_size), i % (W // patch_size)] for i in range(num_nodes)], device=images.device)
+        # Create coordinates more efficiently and ensure correct device
+        patch_w = W // patch_size
+        coords = torch.zeros((num_nodes, 2), dtype=torch.float, device=images.device)
+        coords[:, 0] = torch.arange(num_nodes, device=images.device) // patch_w
+        coords[:, 1] = torch.arange(num_nodes, device=images.device) % patch_w
         dists = torch.cdist(coords.float(), coords.float(), p=2)
         for i in range(num_nodes):
             nn_idx = torch.topk(dists[i], k=k_spatial+1, largest=False).indices[1:]
@@ -72,10 +76,17 @@ def image_to_dynamic_hypergraph_edge_attention(images, k_spatial=4, k_feature=4,
                 feature_edges.append([i, j])
 
         # Combine edges
-        all_edges = torch.tensor(spatial_edges + feature_edges, dtype=torch.long, device=images.device).T
+        all_edges_list = spatial_edges + feature_edges
+        if len(all_edges_list) == 0:
+            # If no edges, create self-loops to prevent errors
+            all_edges = torch.zeros((2, num_nodes), dtype=torch.long, device=images.device)
+            all_edges[0] = torch.arange(num_nodes, device=images.device)
+            all_edges[1] = torch.arange(num_nodes, device=images.device)
+        else:
+            all_edges = torch.tensor(all_edges_list, dtype=torch.long, device=images.device).T
 
         # Compute edge weights if edge attention module is provided
-        if edge_attn is not None:
+        if edge_attn is not None and all_edges.size(1) > 0:
             edge_weight = edge_attn(node_feats, all_edges)
         else:
             edge_weight = torch.ones(all_edges.size(1), device=images.device)
@@ -86,10 +97,14 @@ def image_to_dynamic_hypergraph_edge_attention(images, k_spatial=4, k_feature=4,
         batch_map.append(torch.full((num_nodes,), b, dtype=torch.long, device=images.device))
         node_offset += num_nodes
 
+    # Handle empty batch case
+    if len(batch_node_feats) == 0:
+      raise ValueError("Empty batch: no images processed")
+    
     x = torch.cat(batch_node_feats, dim=0).float()
-    edge_index = torch.cat(batch_edge_index, dim=1)
-    edge_weight = torch.cat(batch_edge_weight)
-    batch_map = torch.cat(batch_map)
+    edge_index = torch.cat(batch_edge_index, dim=1) if len(batch_edge_index) > 0 else torch.zeros((2, 0), dtype=torch.long, device=x.device)
+    edge_weight = torch.cat(batch_edge_weight) if len(batch_edge_weight) > 0 else torch.ones(0, device=x.device)
+    batch_map = torch.cat(batch_map) if len(batch_map) > 0 else torch.zeros(0, dtype=torch.long, device=x.device)
     return x, edge_index, edge_weight, batch_map
 
 class EdgeAttention(nn.Module):
@@ -113,8 +128,16 @@ class EdgeAttention(nn.Module):
 
   def forward(self, x, edge_index):
     row, col = edge_index
+    # Handle empty edge_index case
+    if edge_index.size(1) == 0:
+      return torch.ones(0, device=x.device)
     feats = torch.cat([x[row], x[col]], dim=1)
-    alpha = self.mlp(feats).squeeze()
+    alpha = self.mlp(feats)
+    # Handle both single and multi-dimensional cases
+    if alpha.dim() > 1:
+      alpha = alpha.squeeze(-1)
+    else:
+      alpha = alpha.squeeze()
     # Clamp to prevent extreme values
     alpha = torch.clamp(torch.sigmoid(alpha), min=0.01, max=0.99)
     return alpha
@@ -182,7 +205,7 @@ edge_attn = EdgeAttention(in_dim=3*8*8, hidden=64).to(device)
 optimizer = torch.optim.Adam(list(model.parameters()) + list(edge_attn.parameters()), 
                             lr=0.0005, weight_decay=1e-5)
 # Add learning rate scheduler
-scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5, verbose=True)
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5)
 criterion = nn.CrossEntropyLoss()
 
 best_loss = float('inf')
@@ -211,8 +234,8 @@ for epoch in range(100):
     loss = criterion(outputs, labels)
     
     # Check for NaN before backward
-    if torch.isnan(loss):
-      print(f"NaN detected at epoch {epoch+1}, stopping training")
+    if torch.isnan(loss) or torch.isinf(loss):
+      print(f"NaN/Inf detected at epoch {epoch+1}, batch, stopping training")
       break
     
     loss.backward()
@@ -227,11 +250,11 @@ for epoch in range(100):
     total += labels.size(0)
     correct += (predicted == labels).sum().item()
   
-  # Check for NaN in accumulated loss
+  # Check for NaN in accumulated loss (after training loop)
   if total > 0:
     avg_loss = total_loss / total
-    if torch.isnan(torch.tensor(avg_loss)) or np.isnan(avg_loss):
-      print(f"NaN detected in average loss at epoch {epoch+1}, stopping training")
+    if np.isnan(avg_loss) or np.isinf(avg_loss):
+      print(f"NaN/Inf detected in average loss at epoch {epoch+1}, stopping training")
       break
     
     train_loss = avg_loss
@@ -257,10 +280,18 @@ for epoch in range(100):
         test_total += labels.size(0)
         test_correct += (predicted == labels).sum().item()
     
-    test_loss = test_loss / test_total
-    test_acc = test_correct / test_total
-    test_losses.append(test_loss)
-    test_accuracies.append(test_acc)
+    # Handle division by zero
+    if test_total > 0:
+      test_loss = test_loss / test_total
+      test_acc = test_correct / test_total
+      test_losses.append(test_loss)
+      test_accuracies.append(test_acc)
+    else:
+      test_loss = float('inf')
+      test_acc = 0.0
+      test_losses.append(test_loss)
+      test_accuracies.append(test_acc)
+      print(f"Warning: No test samples processed at epoch {epoch+1}")
     
     scheduler.step(avg_loss)
     print(f"Epoch {epoch+1}, Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f}, Test Loss: {test_loss:.4f}, Test Acc: {test_acc:.4f}, LR: {optimizer.param_groups[0]['lr']:.6f}")
@@ -278,30 +309,36 @@ for epoch in range(100):
     print(f"Epoch {epoch+1}, No valid batches processed")
     break
 
-# Plotting
-plt.figure(figsize=(12, 5))
+# Plotting - only if we have data
+if len(train_losses) > 0 and len(test_losses) > 0:
+  try:
+    plt.figure(figsize=(12, 5))
 
-# Plot loss
-plt.subplot(1, 2, 1)
-plt.plot(range(1, len(train_losses) + 1), train_losses, label='Train Loss', marker='o')
-plt.plot(range(1, len(test_losses) + 1), test_losses, label='Test Loss', marker='s')
-plt.xlabel('Epoch')
-plt.ylabel('Loss')
-plt.title('Training and Test Loss')
-plt.legend()
-plt.grid(True)
+    # Plot loss
+    plt.subplot(1, 2, 1)
+    plt.plot(range(1, len(train_losses) + 1), train_losses, label='Train Loss', marker='o')
+    plt.plot(range(1, len(test_losses) + 1), test_losses, label='Test Loss', marker='s')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.title('Training and Test Loss')
+    plt.legend()
+    plt.grid(True)
 
-# Plot accuracy
-plt.subplot(1, 2, 2)
-plt.plot(range(1, len(train_accuracies) + 1), train_accuracies, label='Train Accuracy', marker='o')
-plt.plot(range(1, len(test_accuracies) + 1), test_accuracies, label='Test Accuracy', marker='s')
-plt.xlabel('Epoch')
-plt.ylabel('Accuracy')
-plt.title('Training and Test Accuracy')
-plt.legend()
-plt.grid(True)
+    # Plot accuracy
+    plt.subplot(1, 2, 2)
+    plt.plot(range(1, len(train_accuracies) + 1), train_accuracies, label='Train Accuracy', marker='o')
+    plt.plot(range(1, len(test_accuracies) + 1), test_accuracies, label='Test Accuracy', marker='s')
+    plt.xlabel('Epoch')
+    plt.ylabel('Accuracy')
+    plt.title('Training and Test Accuracy')
+    plt.legend()
+    plt.grid(True)
 
-plt.tight_layout()
-plt.savefig('training_curves.png', dpi=150, bbox_inches='tight')
-print(f"\nTraining curves saved to 'training_curves.png'")
-plt.close()  # Close the figure to free memory
+    plt.tight_layout()
+    plt.savefig('training_curves.png', dpi=150, bbox_inches='tight')
+    print(f"\nTraining curves saved to 'training_curves.png'")
+    plt.close()  # Close the figure to free memory
+  except Exception as e:
+    print(f"Warning: Could not create plots: {e}")
+else:
+  print("Warning: No training data collected, skipping plot generation")

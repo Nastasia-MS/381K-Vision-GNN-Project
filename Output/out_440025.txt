@@ -1,0 +1,13 @@
+==========================================
+Job ID: 440025
+Node(s): i617-[042-044,051-053]
+Start Time: Mon Nov 10 06:51:42 PM CST 2025
+Working Directory: /home1/11112/rasmus1142/381K-Vision-GNN-Project
+==========================================
+Python 3.9.18
+/home1/11112/rasmus1142/381K-Vision-GNN-Project/venv/bin/python
+(50000, 32, 32, 3)
+==========================================
+End Time: Mon Nov 10 06:52:00 PM CST 2025
+Test completed successfully!
+==========================================

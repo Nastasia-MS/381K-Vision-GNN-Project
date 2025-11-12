@@ -6,7 +6,7 @@
 #SBATCH -p gg                                              # Grace Hopper GPU partition
 #SBATCH -N 1
 #SBATCH -n 1
-#SBATCH -t 00:05:00
+#SBATCH -t 02:00:00  # 2 hours - adjust based on max_epochs (2 epochs ~30-60 min, 50 epochs ~12-24 hours)
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user='rl37272@my.utexas.edu'
 

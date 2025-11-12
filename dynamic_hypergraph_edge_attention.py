@@ -14,23 +14,27 @@ import torch
 import torch.nn as nn
 import torchvision.transforms as T
 import torch.nn.functional as F
-from torchvision.datasets import CIFAR10
+from torchvision.datasets import CIFAR100
 from torch.utils.data import DataLoader
 from torch_geometric.nn import HypergraphConv, AttentionalAggregation
 import matplotlib
 matplotlib.use('Agg')  # Use non-interactive backend for SSH
 import matplotlib.pyplot as plt
 import neptune
+import random
 
+# Training transforms with full AugReg stack (RandAugment, Random Erasing)
 transform = T.Compose([
+    T.RandAugment(num_ops=2, magnitude=9),
     T.ToTensor(),
     T.Normalize(
         mean=[0.4914, 0.4822, 0.4465],
         std=[0.2470, 0.2435, 0.2616]
-    )
-    ])
-train_dataset = CIFAR10(root='./data', train=True, download=True, transform=transform)
-test_dataset = CIFAR10(root='./data', train=False, download=True, transform=transform)
+    ),
+    T.RandomErasing(p=0.25, scale=(0.02, 0.33), ratio=(0.3, 3.3), value=0)  # Random Erasing
+])
+train_dataset = CIFAR100(root='./data', train=True, download=True, transform=transform)
+test_dataset = CIFAR100(root='./data', train=False, download=True, transform=transform)
 
 print(train_dataset.data.shape)
 train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
@@ -216,7 +220,7 @@ try:
         "batch_size": 16,
         "hidden_dim": 256,
         "edge_attn_hidden": 64,
-        "num_classes": 10,
+        "num_classes": 100,
         "patch_size": 8,
         "k_spatial": 4,
         "k_feature": 4,
@@ -224,7 +228,13 @@ try:
         "early_stopping_patience": 10,
         "scheduler_factor": 0.5,
         "scheduler_patience": 5,
-        "device": 'cuda' if torch.cuda.is_available() else 'cpu'
+        "device": 'cuda' if torch.cuda.is_available() else 'cpu',
+        "mixup_alpha": 0.8,
+        "cutmix_alpha": 1.0,
+        "randaugment_ops": 2,
+        "randaugment_magnitude": 9,
+        "random_erasing_p": 0.25,
+        "label_smoothing": 0.1
     }
     neptune_enabled = True
     print("Neptune monitoring initialized successfully")
@@ -234,8 +244,59 @@ except Exception as e:
     neptune_enabled = False
     run = None
 
+def mixup_data(x, y, alpha=0.8):
+    """Mixup augmentation: sample-level blending"""
+    lam = np.random.beta(alpha, alpha)
+    batch_size = x.size()[0]
+    index = torch.randperm(batch_size).to(x.device)
+    mixed_x = lam * x + (1 - lam) * x[index, :]
+    y_a, y_b = y, y[index]
+    return mixed_x, y_a, y_b, lam
+
+def mixup_criterion(criterion, pred, y_a, y_b, lam):
+    """Mixup loss computation"""
+    return lam * criterion(pred, y_a) + (1 - lam) * criterion(pred, y_b)
+
+def cutmix_data(x, y, alpha=1.0):
+    """CutMix augmentation: patch-level blending"""
+    lam = np.random.beta(alpha, alpha)
+    batch_size = x.size()[0]
+    index = torch.randperm(batch_size).to(x.device)
+    
+    # Get image dimensions (assuming [B, C, H, W])
+    _, _, H, W = x.size()
+    
+    # Generate random bounding box
+    cut_rat = np.sqrt(1.0 - lam)
+    cut_w = int(W * cut_rat)
+    cut_h = int(H * cut_rat)
+    
+    # Random center
+    cx = np.random.randint(W)
+    cy = np.random.randint(H)
+    
+    # Clamp bounding box
+    bbx1 = np.clip(cx - cut_w // 2, 0, W)
+    bby1 = np.clip(cy - cut_h // 2, 0, H)
+    bbx2 = np.clip(cx + cut_w // 2, 0, W)
+    bby2 = np.clip(cy + cut_h // 2, 0, H)
+    
+    # Apply CutMix
+    x[:, :, bby1:bby2, bbx1:bbx2] = x[index, :, bby1:bby2, bbx1:bbx2]
+    
+    # Adjust lambda to match actual pixel ratio
+    lam = 1 - ((bbx2 - bbx1) * (bby2 - bby1) / (W * H))
+    
+    y_a, y_b = y, y[index]
+    return x, y_a, y_b, lam
+
+def cutmix_criterion(criterion, pred, y_a, y_b, lam):
+    """CutMix loss computation"""
+    return lam * criterion(pred, y_a) + (1 - lam) * criterion(pred, y_b)
+
+
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-model = HyperVigClassifier(in_channels=3*8*8, hidden=256, num_classes=10).to(device)
+model = HyperVigClassifier(in_channels=3*8*8, hidden=256, num_classes=100).to(device)
 edge_attn = EdgeAttention(in_dim=3*8*8, hidden=64).to(device)
 
 # Lower learning rate and add weight decay for stability
@@ -243,7 +304,8 @@ optimizer = torch.optim.Adam(list(model.parameters()) + list(edge_attn.parameter
                             lr=0.0005, weight_decay=1e-5)
 # Add learning rate scheduler
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5)
-criterion = nn.CrossEntropyLoss()
+# Add label smoothing to the criterion
+criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
 
 best_loss = float('inf')
 patience_counter = 0
@@ -264,11 +326,32 @@ for epoch in range(max_epochs):
   
   for images, labels in train_loader:
     images, labels = images.to(device), labels.to(device)
-    node_feats, edge_index, edge_weight, batch_map = image_to_dynamic_hypergraph_edge_attention(images, edge_attn=edge_attn)
-
+    
     optimizer.zero_grad()
+    
+    # Apply augmentation: randomly choose between MixUp and CutMix (50% each)
+    # Following DeiT/AugReg practice: probabilistic application
+    if random.random() < 0.5:
+        # Apply MixUp
+        images, labels_a, labels_b, lam = mixup_data(images, labels, alpha=0.8)
+        use_cutmix = False
+    else:
+        # Apply CutMix
+        images, labels_a, labels_b, lam = cutmix_data(images, labels, alpha=1.0)
+        use_cutmix = True
+    
+    # Convert augmented images to dynamic hypergraph format
+    node_feats, edge_index, edge_weight, batch_map = image_to_dynamic_hypergraph_edge_attention(images, edge_attn=edge_attn)
+    
+    # Forward pass
     outputs = model(node_feats, edge_index, edge_weight, batch_map)
-    loss = criterion(outputs, labels)
+    
+    # Apply appropriate loss (MixUp or CutMix)
+    if use_cutmix:
+        loss = cutmix_criterion(criterion, outputs, labels_a, labels_b, lam)
+    else:
+        loss = mixup_criterion(criterion, outputs, labels_a, labels_b, lam)
+
     
     # Check for NaN before backward
     if torch.isnan(loss) or torch.isinf(loss):

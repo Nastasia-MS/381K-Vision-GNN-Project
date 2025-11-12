@@ -198,6 +198,9 @@ class HyperVigClassifier(nn.Module):
     out = self.pool(x, batch_map)
     return self.classifier(out)
 
+# Training hyperparameters - change max_epochs here and it will be used throughout
+max_epochs = 2  # Number of epochs to train for
+
 # Initialize Neptune monitoring
 try:
     with open('neptune_api_key.txt', 'r') as f:
@@ -217,7 +220,7 @@ try:
         "patch_size": 8,
         "k_spatial": 4,
         "k_feature": 4,
-        "max_epochs": 100,
+        "max_epochs": max_epochs,
         "early_stopping_patience": 10,
         "scheduler_factor": 0.5,
         "scheduler_patience": 5,
@@ -252,7 +255,7 @@ train_accuracies = []
 test_losses = []
 test_accuracies = []
 
-for epoch in range(100):
+for epoch in range(max_epochs):
   model.train()
   edge_attn.train()  # Set edge attention to train mode
   total_loss = 0

@@ -1,0 +1,46 @@
+==========================================
+Job ID: 445359
+Node(s): i618-[071-074,081-082]
+Start Time: Wed Nov 12 08:40:40 PM CST 2025
+Working Directory: /home1/11112/rasmus1142/381K-Vision-GNN-Project
+==========================================
+Python 3.9.18
+/home1/11112/rasmus1142/381K-Vision-GNN-Project/venv/bin/python
+(50000, 32, 32, 3)
+[neptune] [info   ] Neptune initialized. Open in the app: https://app.neptune.ai/31K-ML-Real/381K-Vision-GNN-Project/e/KVIS-6
+Neptune monitoring initialized successfully
+Epoch 1, Train Loss: 4.2473, Train Acc: 0.0582, Test Loss: 4.0047, Test Acc: 0.0936, LR: 0.000500
+Epoch 2, Train Loss: 3.9065, Train Acc: 0.1196, Test Loss: 3.7269, Test Acc: 0.1520, LR: 0.000500
+Epoch 3, Train Loss: 3.6772, Train Acc: 0.1695, Test Loss: 3.5436, Test Acc: 0.1976, LR: 0.000500
+Epoch 4, Train Loss: 3.5025, Train Acc: 0.2101, Test Loss: 3.5197, Test Acc: 0.2060, LR: 0.000500
+Epoch 5, Train Loss: 3.3706, Train Acc: 0.2414, Test Loss: 3.3616, Test Acc: 0.2424, LR: 0.000500
+Epoch 6, Train Loss: 3.2648, Train Acc: 0.2662, Test Loss: 3.2388, Test Acc: 0.2761, LR: 0.000500
+Epoch 7, Train Loss: 3.1769, Train Acc: 0.2929, Test Loss: 3.1119, Test Acc: 0.2995, LR: 0.000500
+Epoch 8, Train Loss: 3.1002, Train Acc: 0.3133, Test Loss: 3.0782, Test Acc: 0.3248, LR: 0.000500
+Epoch 9, Train Loss: 3.0388, Train Acc: 0.3312, Test Loss: 2.9820, Test Acc: 0.3363, LR: 0.000500
+Epoch 10, Train Loss: 2.9891, Train Acc: 0.3429, Test Loss: 2.9370, Test Acc: 0.3587, LR: 0.000500
+Epoch 11, Train Loss: 2.9395, Train Acc: 0.3575, Test Loss: 2.9100, Test Acc: 0.3648, LR: 0.000500
+Epoch 12, Train Loss: 3.6174, Train Acc: 0.1891, Test Loss: 2.9303, Test Acc: 0.3673, LR: 0.000500
+Epoch 13, Train Loss: 3.6212, Train Acc: 0.1948, Test Loss: 2.9634, Test Acc: 0.3557, LR: 0.000500
+Epoch 14, Train Loss: 3.5938, Train Acc: 0.2015, Test Loss: 2.9293, Test Acc: 0.3658, LR: 0.000500
+Epoch 15, Train Loss: 3.5736, Train Acc: 0.2060, Test Loss: 2.9024, Test Acc: 0.3720, LR: 0.000500
+Epoch 16, Train Loss: 3.5708, Train Acc: 0.2066, Test Loss: 2.8861, Test Acc: 0.3812, LR: 0.000500
+Epoch 17, Train Loss: 3.5372, Train Acc: 0.2136, Test Loss: 2.8534, Test Acc: 0.3818, LR: 0.000250
+Epoch 18, Train Loss: 3.4586, Train Acc: 0.2304, Test Loss: 2.7587, Test Acc: 0.4187, LR: 0.000250
+Epoch 19, Train Loss: 3.4404, Train Acc: 0.2382, Test Loss: 2.7298, Test Acc: 0.4270, LR: 0.000250
+Epoch 20, Train Loss: 3.4143, Train Acc: 0.2394, Test Loss: 2.7022, Test Acc: 0.4292, LR: 0.000250
+Epoch 21, Train Loss: 3.4164, Train Acc: 0.2503, Test Loss: 2.6849, Test Acc: 0.4391, LR: 0.000250
+Early stopping at epoch 21
+
+Training curves saved to 'training_curves.png'
+Training curves uploaded to Neptune
+[neptune] [info   ] Shutting down background jobs, please wait a moment...
+[neptune] [info   ] Done!
+[neptune] [info   ] Waiting for the remaining 15 operations to synchronize with Neptune. Do not kill this process.
+[neptune] [info   ] All 15 operations synced, thanks for waiting!
+[neptune] [info   ] Explore the metadata in the Neptune app: https://app.neptune.ai/31K-ML-Real/381K-Vision-GNN-Project/e/KVIS-6/metadata
+Neptune run stopped successfully
+==========================================
+End Time: Thu Nov 13 06:46:00 AM CST 2025
+Test completed successfully!
+==========================================

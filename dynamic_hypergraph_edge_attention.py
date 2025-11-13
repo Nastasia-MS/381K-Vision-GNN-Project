@@ -42,7 +42,23 @@ test_loader = DataLoader(test_dataset, batch_size=16, shuffle=False)
 
 """# image->hypergraph"""
 
-def image_to_dynamic_hypergraph_edge_attention(images, k_spatial=4, k_feature=4, edge_attn=None):
+class ConvStem(nn.Module):
+    """Convolutional stem to extract features before graph construction""" #From GreedyViG
+    def __init__(self):
+        super().__init__()
+        self.stem = nn.Sequential(
+            nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(),
+            nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(),
+        )
+    
+    def forward(self, x):
+        return self.stem(x)
+
+def image_to_dynamic_hypergraph_edge_attention(images, k_spatial=4, k_feature=4, edge_attn=None, patch_size=4):
     batch_node_feats = []
     batch_edge_index = []
     batch_edge_weight = []
@@ -52,12 +68,14 @@ def image_to_dynamic_hypergraph_edge_attention(images, k_spatial=4, k_feature=4,
     for b, img in enumerate(images):
         # img: [C,H,W] -> patches
         C, H, W = img.shape
-        patch_size = 8
         patches = img.unfold(1, patch_size, patch_size).unfold(2, patch_size, patch_size)
-        patches = patches.permute(1,2,0,3,4).contiguous()       # [num_patches_h, num_patches_w, C, 8,8]
-        patches = patches.view(-1, C, patch_size, patch_size)    # [num_nodes, C, 8,8]
-        node_feats = patches.view(patches.size(0), -1).to(images.device)  # [num_nodes, 192]
+        patches = patches.permute(1,2,0,3,4).contiguous()       # [num_patches_h, num_patches_w, C, patch_size, patch_size]
+        patches = patches.view(-1, C, patch_size, patch_size)    # [num_nodes, C, patch_size, patch_size]
+        node_feats = patches.view(patches.size(0), -1).to(images.device)  # [num_nodes, C*patch_size*patch_size]
         num_nodes = node_feats.size(0)
+        
+        # Normalize features before kNN (IMPROVEMENT #3)
+        node_feats = F.layer_norm(node_feats, node_feats.shape[1:])
 
         # Spatial edges (static)
         spatial_edges = []
@@ -72,7 +90,7 @@ def image_to_dynamic_hypergraph_edge_attention(images, k_spatial=4, k_feature=4,
             for j in nn_idx:
                 spatial_edges.append([i, j])
 
-        # Feature edges
+        # Feature edges (with normalized features)
         dists_feat = torch.cdist(node_feats.float(), node_feats.float(), p=2)
         feature_edges = []
         for i in range(num_nodes):
@@ -163,18 +181,22 @@ class HyperVigClassifier(nn.Module):
     self.ff = nn.Sequential(
         nn.Linear(hidden, hidden * 2),
         nn.LayerNorm(hidden * 2),
-        nn.ReLU(),
+        nn.GELU(),  # Changed from ReLU to GELU (IMPROVEMENT #6)
         nn.Dropout(0.2),
         nn.Linear(hidden * 2, hidden)
     )
 
     self.pool = AttentionalAggregation(gate_nn=nn.Sequential(
         nn.Linear(hidden, hidden), 
-        nn.ReLU(), 
+        nn.GELU(),  # Changed from ReLU to GELU
         nn.Dropout(0.1),
         nn.Linear(hidden, 1)
     ))
-    self.classifier = nn.Linear(hidden, num_classes)
+    # Added dropout to classifier (IMPROVEMENT #7)
+    self.classifier = nn.Sequential(
+        nn.Dropout(0.2),
+        nn.Linear(hidden, num_classes)
+    )
     
     # Initialize weights properly
     self._init_weights()
@@ -187,13 +209,13 @@ class HyperVigClassifier(nn.Module):
           nn.init.constant_(m.bias, 0)
 
   def forward(self, x, edge_index, edge_weight, batch_map):
-    x = self.input_proj(x)  # match dimensions (192 -> 256)
+    x = self.input_proj(x)  # match dimensions to hidden
     
     for conv, norm in [(self.conv1, self.norm1), (self.conv2, self.norm2), (self.conv3, self.norm3)]:
         x_res = x
         x = conv(x, edge_index, edge_weight)
         x = norm(x)
-        x = F.relu(x)
+        x = F.gelu(x)  # Changed from ReLU to GELU (IMPROVEMENT #6)
         x = self.dropout(x) + x_res
         # Clamp to prevent extreme values
         x = torch.clamp(x, min=-10, max=10)
@@ -203,7 +225,7 @@ class HyperVigClassifier(nn.Module):
     return self.classifier(out)
 
 # Training hyperparameters - change max_epochs here and it will be used throughout
-max_epochs = 50  # Number of epochs to train for 50 at least
+max_epochs = 100  # Number of epochs to train for 50 at least
 
 # Initialize Neptune monitoring
 try:
@@ -218,10 +240,12 @@ try:
         "learning_rate": 0.0005,
         "weight_decay": 1e-5,
         "batch_size": 16,
-        "hidden_dim": 256,
+        "hidden_dim": 384,
         "edge_attn_hidden": 64,
         "num_classes": 100,
-        "patch_size": 8,
+        "patch_size": 4,
+        "stem_channels": 64,
+        "in_channels": 1024,  # stem_channels * patch_size * patch_size
         "k_spatial": 4,
         "k_feature": 4,
         "max_epochs": max_epochs,
@@ -296,12 +320,28 @@ def cutmix_criterion(criterion, pred, y_a, y_b, lam):
 
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-model = HyperVigClassifier(in_channels=3*8*8, hidden=256, num_classes=100).to(device)
-edge_attn = EdgeAttention(in_dim=3*8*8, hidden=64).to(device)
+
+# Initialize convolutional stem (IMPROVEMENT #1)
+stem = ConvStem().to(device)
+
+# Patch size changed from 8 to 4 (IMPROVEMENT #2)
+# With stem: 64 channels, patch_size=4 -> 64*4*4 = 1024 input channels
+patch_size = 4
+stem_channels = 64
+in_channels = stem_channels * patch_size * patch_size  # 64 * 4 * 4 = 1024
+
+# Hidden dimension increased from 256 to 384 (IMPROVEMENT #5)
+hidden_dim = 384
+
+model = HyperVigClassifier(in_channels=in_channels, hidden=hidden_dim, num_classes=100).to(device)
+edge_attn = EdgeAttention(in_dim=in_channels, hidden=64).to(device)
 
 # Lower learning rate and add weight decay for stability
-optimizer = torch.optim.Adam(list(model.parameters()) + list(edge_attn.parameters()), 
-                            lr=0.0005, weight_decay=1e-5)
+# Include stem parameters in optimizer
+optimizer = torch.optim.Adam(
+    list(model.parameters()) + list(edge_attn.parameters()) + list(stem.parameters()), 
+    lr=0.0005, weight_decay=1e-5
+)
 # Add learning rate scheduler
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5)
 # Add label smoothing to the criterion
@@ -320,6 +360,7 @@ test_accuracies = []
 for epoch in range(max_epochs):
   model.train()
   edge_attn.train()  # Set edge attention to train mode
+  stem.train()  # Set stem to train mode
   total_loss = 0
   correct = 0
   total = 0
@@ -329,19 +370,33 @@ for epoch in range(max_epochs):
     
     optimizer.zero_grad()
     
-    # Apply augmentation: randomly choose between MixUp and CutMix (50% each)
-    # Following DeiT/AugReg practice: probabilistic application
-    if random.random() < 0.5:
-        # Apply MixUp
-        images, labels_a, labels_b, lam = mixup_data(images, labels, alpha=0.8)
-        use_cutmix = False
+    # Apply augmentation: Delay MixUp/CutMix until epoch > 10 (IMPROVEMENT #4)
+    # MixUp and CutMix slow down early learning for small models
+    if epoch > 10:
+        # Apply augmentation: randomly choose between MixUp and CutMix (50% each)
+        # Following DeiT/AugReg practice: probabilistic application
+        if random.random() < 0.5:
+            # Apply MixUp
+            images, labels_a, labels_b, lam = mixup_data(images, labels, alpha=0.8)
+            use_cutmix = False
+        else:
+            # Apply CutMix
+            images, labels_a, labels_b, lam = cutmix_data(images, labels, alpha=1.0)
+            use_cutmix = True
     else:
-        # Apply CutMix
-        images, labels_a, labels_b, lam = cutmix_data(images, labels, alpha=1.0)
-        use_cutmix = True
+        # No MixUp/CutMix in early epochs
+        labels_a = labels
+        labels_b = labels
+        lam = 1.0
+        use_cutmix = False
+    
+    # Apply convolutional stem before graph construction (IMPROVEMENT #1)
+    images = stem(images)
     
     # Convert augmented images to dynamic hypergraph format
-    node_feats, edge_index, edge_weight, batch_map = image_to_dynamic_hypergraph_edge_attention(images, edge_attn=edge_attn)
+    node_feats, edge_index, edge_weight, batch_map = image_to_dynamic_hypergraph_edge_attention(
+        images, edge_attn=edge_attn, patch_size=patch_size
+    )
     
     # Forward pass
     outputs = model(node_feats, edge_index, edge_weight, batch_map)
@@ -360,8 +415,11 @@ for epoch in range(max_epochs):
     
     loss.backward()
     
-    # Gradient clipping to prevent explosion
-    torch.nn.utils.clip_grad_norm_(list(model.parameters()) + list(edge_attn.parameters()), max_norm=1.0)
+    # Gradient clipping to prevent explosion (include stem)
+    torch.nn.utils.clip_grad_norm_(
+        list(model.parameters()) + list(edge_attn.parameters()) + list(stem.parameters()), 
+        max_norm=1.0
+    )
     
     optimizer.step()
 
@@ -385,13 +443,18 @@ for epoch in range(max_epochs):
     # Testing phase
     model.eval()
     edge_attn.eval()
+    stem.eval()
     test_loss = 0
     test_correct = 0
     test_total = 0
     with torch.no_grad():
       for images, labels in test_loader:
         images, labels = images.to(device), labels.to(device)
-        node_feats, edge_index, edge_weight, batch_map = image_to_dynamic_hypergraph_edge_attention(images, edge_attn=edge_attn)
+        # Apply convolutional stem before graph construction
+        images = stem(images)
+        node_feats, edge_index, edge_weight, batch_map = image_to_dynamic_hypergraph_edge_attention(
+            images, edge_attn=edge_attn, patch_size=patch_size
+        )
         outputs = model(node_feats, edge_index, edge_weight, batch_map)
         loss = criterion(outputs, labels)
         

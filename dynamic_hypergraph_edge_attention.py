@@ -14,12 +14,13 @@ import torch
 import torch.nn as nn
 import torchvision.transforms as T
 import torch.nn.functional as F
-from torchvision.datasets import CIFAR10
+from torchvision.datasets import CIFAR100
 from torch.utils.data import DataLoader
 from torch_geometric.nn import HypergraphConv, AttentionalAggregation
 import matplotlib
 matplotlib.use('Agg')  # Use non-interactive backend for SSH
 import matplotlib.pyplot as plt
+import neptune
 
 transform = T.Compose([
     T.ToTensor(),
@@ -28,8 +29,8 @@ transform = T.Compose([
         std=[0.2470, 0.2435, 0.2616]
     )
     ])
-train_dataset = CIFAR10(root='./data', train=True, download=True, transform=transform)
-test_dataset = CIFAR10(root='./data', train=False, download=True, transform=transform)
+train_dataset = CIFAR100(root='./data', train=True, download=True, transform=transform)
+test_dataset = CIFAR100(root='./data', train=False, download=True, transform=transform)
 
 print(train_dataset.data.shape)
 train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
@@ -198,7 +199,40 @@ class HyperVigClassifier(nn.Module):
     return self.classifier(out)
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-model = HyperVigClassifier(in_channels=3*8*8, hidden=256, num_classes=10).to(device)
+
+# Initialize Neptune monitoring
+try:
+    with open('neptune_api_key.txt', 'r') as f:
+        api_token = f.read().strip()
+    run = neptune.init_run(
+        project="31K-ML-Real/381K-Vision-GNN-Project",
+        api_token=api_token,
+    )
+    # Log hyperparameters
+    run["parameters"] = {
+        "learning_rate": 0.0005,
+        "weight_decay": 1e-5,
+        "batch_size": 16,
+        "hidden_dim": 256,
+        "edge_attn_hidden": 64,
+        "num_classes": 100,
+        "patch_size": 8,
+        "in_channels": 192,
+        "max_epochs": 100,
+        "early_stopping_patience": 10,
+        "scheduler_factor": 0.5,
+        "scheduler_patience": 5,
+        "device": device
+    }
+    neptune_enabled = True
+    print("Neptune monitoring initialized successfully")
+except Exception as e:
+    print(f"Warning: Could not initialize Neptune monitoring: {e}")
+    print("Continuing without Neptune monitoring...")
+    neptune_enabled = False
+    run = None
+
+model = HyperVigClassifier(in_channels=3*8*8, hidden=256, num_classes=100).to(device)
 edge_attn = EdgeAttention(in_dim=3*8*8, hidden=64).to(device)
 
 # Lower learning rate and add weight decay for stability
@@ -294,7 +328,16 @@ for epoch in range(100):
       print(f"Warning: No test samples processed at epoch {epoch+1}")
     
     scheduler.step(avg_loss)
-    print(f"Epoch {epoch+1}, Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f}, Test Loss: {test_loss:.4f}, Test Acc: {test_acc:.4f}, LR: {optimizer.param_groups[0]['lr']:.6f}")
+    current_lr = optimizer.param_groups[0]['lr']
+    print(f"Epoch {epoch+1}, Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f}, Test Loss: {test_loss:.4f}, Test Acc: {test_acc:.4f}, LR: {current_lr:.6f}")
+    
+    # Log metrics to Neptune
+    if neptune_enabled and run is not None:
+        run["train/loss"].append(train_loss)
+        run["train/accuracy"].append(train_acc)
+        run["test/loss"].append(test_loss)
+        run["test/accuracy"].append(test_acc)
+        run["learning_rate"].append(current_lr)
     
     # Early stopping if loss improves
     if avg_loss < best_loss:
@@ -337,8 +380,25 @@ if len(train_losses) > 0 and len(test_losses) > 0:
     plt.tight_layout()
     plt.savefig('training_curves.png', dpi=150, bbox_inches='tight')
     print(f"\nTraining curves saved to 'training_curves.png'")
+    
+    # Upload plot to Neptune
+    if neptune_enabled and run is not None:
+        try:
+            run["training_curves"].upload('training_curves.png')
+            print("Training curves uploaded to Neptune")
+        except Exception as e:
+            print(f"Warning: Could not upload plot to Neptune: {e}")
+    
     plt.close()  # Close the figure to free memory
   except Exception as e:
     print(f"Warning: Could not create plots: {e}")
 else:
   print("Warning: No training data collected, skipping plot generation")
+
+# Stop Neptune run
+if neptune_enabled and run is not None:
+    try:
+        run.stop()
+        print("Neptune run stopped successfully")
+    except Exception as e:
+        print(f"Warning: Could not stop Neptune run: {e}")

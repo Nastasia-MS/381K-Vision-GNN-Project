@@ -25,7 +25,7 @@ import random
 
 # Training transforms with full AugReg stack (RandAugment, Random Erasing)
 transform = T.Compose([
-    T.RandAugment(num_ops=2, magnitude=9),
+    T.RandAugment(num_ops=1, magnitude=5),
     T.ToTensor(),
     T.Normalize(
         mean=[0.4914, 0.4822, 0.4465],
@@ -58,7 +58,7 @@ class ConvStem(nn.Module):
     def forward(self, x):
         return self.stem(x)
 
-def image_to_dynamic_hypergraph_edge_attention(images, k_spatial=4, k_feature=4, edge_attn=None, patch_size=8):
+def image_to_dynamic_hypergraph_edge_attention(images, k_spatial=3, k_feature=3, edge_attn=None, patch_size=4):
     batch_node_feats = []
     batch_edge_index = []
     batch_edge_weight = []
@@ -172,14 +172,14 @@ class HyperVigClassifier(nn.Module):
     self.norm2 = nn.LayerNorm(hidden)
     self.conv3 = HypergraphConv(hidden, hidden)
     self.norm3 = nn.LayerNorm(hidden)
-    self.dropout = nn.Dropout(0.3)
+    self.dropout = nn.Dropout(0.1) # changed from 0.3 to 0.1 
     
     # More stable feedforward layer
     self.ff = nn.Sequential(
         nn.Linear(hidden, hidden * 2),
         nn.LayerNorm(hidden * 2),
         nn.ReLU(), 
-        nn.Dropout(0.2),
+        nn.Dropout(0.1), # changed from 0.2 to 0.1 
         nn.Linear(hidden * 2, hidden)
     )
 
@@ -189,7 +189,7 @@ class HyperVigClassifier(nn.Module):
         nn.Dropout(0.1),
         nn.Linear(hidden, 1)
     ))
-    # Added dropout to classifier (IMPROVEMENT #7)
+    # Added dropout to classifier 
     self.classifier = nn.Sequential(
         nn.Dropout(0.2),
         nn.Linear(hidden, num_classes)
@@ -220,7 +220,7 @@ class HyperVigClassifier(nn.Module):
     return out
 
 # Training hyperparameters - change max_epochs here and it will be used throughout
-max_epochs = 50  # Number of epochs to train for 50 at least
+max_epochs = 100  # Number of epochs to train for 100 changed from 50 to 100 to increase training time
 
 # Initialize Neptune monitoring
 try:
@@ -232,17 +232,17 @@ try:
     )
     # Log hyperparameters
     run["parameters"] = {
-        "learning_rate": 0.001,
+        "learning_rate": 0.002, # changed from 0.001 to 0.002 to increase training time
         "weight_decay": 1e-5,
         "batch_size": 16,
         "hidden_dim": 256,
         "edge_attn_hidden": 64,
         "num_classes": 100,
-        "patch_size": 8,
+        "patch_size": 4, # changed from 8 to 4 
         "stem_channels": 64,
-        "in_channels": 4096,  # stem_channels * patch_size * patch_size (64 * 8 * 8)
-        "k_spatial": 4,
-        "k_feature": 4,
+        "in_channels": 1024,  # stem_channels * patch_size * patch_size (64 * 4 * 4)
+        "k_spatial": 3, # changed from 4 to 3 
+        "k_feature": 3, # changed from 4 to 3 
         "max_epochs": max_epochs,
         "scheduler_factor": 0.5,
         "scheduler_patience": 5,
@@ -252,8 +252,8 @@ try:
         "cutmix_alpha_start": 0.2,
         "cutmix_alpha_end": 1.0,
         "augmentation_schedule": "linear_increase",
-        "randaugment_ops": 2,
-        "randaugment_magnitude": 9,
+        "randaugment_ops": 1,
+        "randaugment_magnitude": 5,
         "random_erasing_p": 0.25
     }
     neptune_enabled = True
@@ -320,9 +320,9 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 # Initialize convolutional stem 
 stem = ConvStem().to(device)
 
-patch_size = 8
+patch_size = 4  # Changed from 8 to 4 to prevent underfitting (more nodes per image)
 stem_channels = 64  # ConvStem outputs 64 channels
-in_channels = stem_channels * patch_size * patch_size  # 64 * 8 * 8 = 4096
+in_channels = stem_channels * patch_size * patch_size  # 64 * 4 * 4 = 1024
 
 hidden_dim = 256
 
@@ -333,7 +333,7 @@ edge_attn = EdgeAttention(in_dim=in_channels, hidden=64).to(device)
 # Include stem parameters in optimizer
 optimizer = torch.optim.Adam(
     list(model.parameters()) + list(edge_attn.parameters()) + list(stem.parameters()), 
-    lr=0.001, weight_decay=1e-5  # Increased learning rate (TA requirement)
+    lr=0.002, weight_decay=1e-5  # Increased learning rate (TA requirement)
 )
 # Add learning rate scheduler
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5)
@@ -486,7 +486,6 @@ for epoch in range(max_epochs):
         run["test/accuracy"].append(test_acc)
         run["learning_rate"].append(current_lr)
     
-    # Early stopping removed (TA requirement)
   else:
     print(f"Epoch {epoch+1}, No valid batches processed")
     break

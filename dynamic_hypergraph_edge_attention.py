@@ -220,7 +220,7 @@ class HyperVigClassifier(nn.Module):
     return out
 
 # Training hyperparameters - change max_epochs here and it will be used throughout
-max_epochs = 100  # Number of epochs to train for 100 changed from 50 to 100 to increase training time
+max_epochs = 50  # Number of epochs to train for 100 changed from 50 to 100 to increase training time
 
 # Initialize Neptune monitoring
 try:

@@ -14,7 +14,7 @@ import torch
 import torch.nn as nn
 import torchvision.transforms as T
 import torch.nn.functional as F
-from torchvision.datasets import CIFAR100
+from torchvision.datasets import CIFAR10
 from torch.utils.data import DataLoader
 from torch_geometric.nn import HypergraphConv, AttentionalAggregation
 import matplotlib
@@ -33,8 +33,8 @@ transform = T.Compose([
     ),
     T.RandomErasing(p=0.25, scale=(0.02, 0.33), ratio=(0.3, 3.3), value=0)  # Random Erasing
 ])
-train_dataset = CIFAR100(root='./data', train=True, download=True, transform=transform)
-test_dataset = CIFAR100(root='./data', train=False, download=True, transform=transform)
+train_dataset = CIFAR10(root='./data', train=True, download=True, transform=transform)
+test_dataset = CIFAR10(root='./data', train=False, download=True, transform=transform)
 
 print(train_dataset.data.shape)
 train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
@@ -237,7 +237,7 @@ try:
         "batch_size": 16,
         "hidden_dim": 256,
         "edge_attn_hidden": 64,
-        "num_classes": 100,
+        "num_classes": 10,
         "patch_size": 4, # changed from 8 to 4 
         "stem_channels": 64,
         "in_channels": 1024,  # stem_channels * patch_size * patch_size (64 * 4 * 4)
@@ -326,7 +326,7 @@ in_channels = stem_channels * patch_size * patch_size  # 64 * 4 * 4 = 1024
 
 hidden_dim = 256
 
-model = HyperVigClassifier(in_channels=in_channels, hidden=hidden_dim, num_classes=100).to(device)
+model = HyperVigClassifier(in_channels=in_channels, hidden=hidden_dim, num_classes=10).to(device)
 edge_attn = EdgeAttention(in_dim=in_channels, hidden=64).to(device)
 
 # Lower learning rate and add weight decay for stability

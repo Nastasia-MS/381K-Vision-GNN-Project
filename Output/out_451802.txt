@@ -1,0 +1,74 @@
+==========================================
+Job ID: 451802
+Node(s): i617-[051-053,063,093-094]
+Start Time: Sun Nov 16 06:31:08 PM CST 2025
+Working Directory: /home1/11112/rasmus1142/381K-Vision-GNN-Project
+==========================================
+Python 3.9.18
+/home1/11112/rasmus1142/381K-Vision-GNN-Project/venv/bin/python
+(50000, 32, 32, 3)
+[neptune] [info   ] Neptune initialized. Open in the app: https://app.neptune.ai/31K-ML-Real/381K-Vision-GNN-Project/e/KVIS-11
+Neptune monitoring initialized successfully
+Epoch 1, Train Loss: 2.0507, Train Acc: 0.1957, Test Loss: 1.7510, Test Acc: 0.3379, LR: 0.002000
+Epoch 2, Train Loss: 1.8731, Train Acc: 0.2640, Test Loss: 1.5442, Test Acc: 0.4318, LR: 0.002000
+Epoch 3, Train Loss: 1.7552, Train Acc: 0.3095, Test Loss: 1.4206, Test Acc: 0.4882, LR: 0.002000
+Epoch 4, Train Loss: 1.6705, Train Acc: 0.3461, Test Loss: 1.3216, Test Acc: 0.5296, LR: 0.002000
+Epoch 5, Train Loss: 1.6147, Train Acc: 0.3583, Test Loss: 1.2572, Test Acc: 0.5501, LR: 0.002000
+Epoch 6, Train Loss: 1.5780, Train Acc: 0.3790, Test Loss: 1.2385, Test Acc: 0.5592, LR: 0.002000
+Epoch 7, Train Loss: 1.5554, Train Acc: 0.3816, Test Loss: 1.2029, Test Acc: 0.5668, LR: 0.002000
+Epoch 8, Train Loss: 1.5279, Train Acc: 0.3918, Test Loss: 1.1470, Test Acc: 0.5938, LR: 0.002000
+Epoch 9, Train Loss: 1.5240, Train Acc: 0.4053, Test Loss: 1.2067, Test Acc: 0.5745, LR: 0.002000
+Epoch 10, Train Loss: 1.5153, Train Acc: 0.4050, Test Loss: 1.0916, Test Acc: 0.6362, LR: 0.002000
+Epoch 11, Train Loss: 1.5095, Train Acc: 0.4091, Test Loss: 1.1190, Test Acc: 0.5953, LR: 0.002000
+Epoch 12, Train Loss: 1.5002, Train Acc: 0.4175, Test Loss: 1.0730, Test Acc: 0.6423, LR: 0.002000
+Epoch 13, Train Loss: 1.4853, Train Acc: 0.4205, Test Loss: 1.0595, Test Acc: 0.6285, LR: 0.002000
+Epoch 14, Train Loss: 1.4927, Train Acc: 0.4215, Test Loss: 1.0611, Test Acc: 0.6371, LR: 0.002000
+Epoch 15, Train Loss: 1.4827, Train Acc: 0.4226, Test Loss: 1.0633, Test Acc: 0.6310, LR: 0.002000
+Epoch 16, Train Loss: 1.4770, Train Acc: 0.4279, Test Loss: 1.0764, Test Acc: 0.6249, LR: 0.002000
+Epoch 17, Train Loss: 1.4777, Train Acc: 0.4254, Test Loss: 1.0030, Test Acc: 0.6608, LR: 0.002000
+Epoch 18, Train Loss: 1.4700, Train Acc: 0.4324, Test Loss: 1.0543, Test Acc: 0.6357, LR: 0.002000
+Epoch 19, Train Loss: 1.4666, Train Acc: 0.4336, Test Loss: 0.9793, Test Acc: 0.6680, LR: 0.002000
+Epoch 20, Train Loss: 1.4498, Train Acc: 0.4304, Test Loss: 1.0447, Test Acc: 0.6492, LR: 0.002000
+Epoch 21, Train Loss: 1.4631, Train Acc: 0.4404, Test Loss: 1.0250, Test Acc: 0.6607, LR: 0.002000
+Epoch 22, Train Loss: 1.4650, Train Acc: 0.4358, Test Loss: 0.9651, Test Acc: 0.6803, LR: 0.002000
+Epoch 23, Train Loss: 1.4554, Train Acc: 0.4408, Test Loss: 0.9690, Test Acc: 0.6680, LR: 0.002000
+Epoch 24, Train Loss: 1.4686, Train Acc: 0.4378, Test Loss: 1.0351, Test Acc: 0.6477, LR: 0.002000
+Epoch 25, Train Loss: 1.4626, Train Acc: 0.4449, Test Loss: 1.0068, Test Acc: 0.6775, LR: 0.002000
+Epoch 26, Train Loss: 1.4637, Train Acc: 0.4460, Test Loss: 1.0646, Test Acc: 0.6575, LR: 0.001000
+Epoch 27, Train Loss: 1.4243, Train Acc: 0.4616, Test Loss: 0.8774, Test Acc: 0.7162, LR: 0.001000
+Epoch 28, Train Loss: 1.4048, Train Acc: 0.4679, Test Loss: 0.8999, Test Acc: 0.6954, LR: 0.001000
+Epoch 29, Train Loss: 1.4130, Train Acc: 0.4609, Test Loss: 0.9226, Test Acc: 0.6882, LR: 0.001000
+Epoch 30, Train Loss: 1.4042, Train Acc: 0.4691, Test Loss: 0.8723, Test Acc: 0.7141, LR: 0.001000
+Epoch 31, Train Loss: 1.4010, Train Acc: 0.4688, Test Loss: 0.8982, Test Acc: 0.7087, LR: 0.001000
+Epoch 32, Train Loss: 1.3992, Train Acc: 0.4660, Test Loss: 0.8422, Test Acc: 0.7155, LR: 0.001000
+Epoch 33, Train Loss: 1.4159, Train Acc: 0.4614, Test Loss: 0.9092, Test Acc: 0.6998, LR: 0.001000
+Epoch 34, Train Loss: 1.4136, Train Acc: 0.4660, Test Loss: 0.8865, Test Acc: 0.6975, LR: 0.001000
+Epoch 35, Train Loss: 1.3993, Train Acc: 0.4745, Test Loss: 0.8500, Test Acc: 0.7169, LR: 0.001000
+Epoch 36, Train Loss: 1.4002, Train Acc: 0.4842, Test Loss: 0.8822, Test Acc: 0.7026, LR: 0.001000
+Epoch 37, Train Loss: 1.4066, Train Acc: 0.4644, Test Loss: 0.8945, Test Acc: 0.7134, LR: 0.001000
+Epoch 38, Train Loss: 1.4134, Train Acc: 0.4733, Test Loss: 0.8928, Test Acc: 0.7066, LR: 0.000500
+Epoch 39, Train Loss: 1.3607, Train Acc: 0.4945, Test Loss: 0.8085, Test Acc: 0.7353, LR: 0.000500
+Epoch 40, Train Loss: 1.3730, Train Acc: 0.4814, Test Loss: 0.8304, Test Acc: 0.7328, LR: 0.000500
+Epoch 41, Train Loss: 1.3795, Train Acc: 0.4815, Test Loss: 0.8231, Test Acc: 0.7362, LR: 0.000500
+Epoch 42, Train Loss: 1.3647, Train Acc: 0.4894, Test Loss: 0.8546, Test Acc: 0.7190, LR: 0.000500
+Epoch 43, Train Loss: 1.3752, Train Acc: 0.4963, Test Loss: 0.8587, Test Acc: 0.7211, LR: 0.000500
+Epoch 44, Train Loss: 1.3786, Train Acc: 0.4819, Test Loss: 0.8167, Test Acc: 0.7330, LR: 0.000500
+Epoch 45, Train Loss: 1.3716, Train Acc: 0.4894, Test Loss: 0.8029, Test Acc: 0.7393, LR: 0.000250
+Epoch 46, Train Loss: 1.3486, Train Acc: 0.5036, Test Loss: 0.7786, Test Acc: 0.7528, LR: 0.000250
+Epoch 47, Train Loss: 1.3635, Train Acc: 0.4954, Test Loss: 0.7684, Test Acc: 0.7479, LR: 0.000250
+Epoch 48, Train Loss: 1.3471, Train Acc: 0.5018, Test Loss: 0.7851, Test Acc: 0.7532, LR: 0.000250
+Epoch 49, Train Loss: 1.3549, Train Acc: 0.4959, Test Loss: 0.8189, Test Acc: 0.7345, LR: 0.000250
+Epoch 50, Train Loss: 1.3552, Train Acc: 0.4981, Test Loss: 0.7891, Test Acc: 0.7511, LR: 0.000250
+
+Training curves saved to 'training_curves.png'
+Training curves uploaded to Neptune
+[neptune] [info   ] Shutting down background jobs, please wait a moment...
+[neptune] [info   ] Done!
+[neptune] [info   ] Waiting for the remaining 15 operations to synchronize with Neptune. Do not kill this process.
+[neptune] [info   ] All 15 operations synced, thanks for waiting!
+[neptune] [info   ] Explore the metadata in the Neptune app: https://app.neptune.ai/31K-ML-Real/381K-Vision-GNN-Project/e/KVIS-11/metadata
+Neptune run stopped successfully
+==========================================
+End Time: Mon Nov 17 11:37:58 AM CST 2025
+Test completed successfully!
+==========================================

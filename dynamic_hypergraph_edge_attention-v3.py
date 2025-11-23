@@ -7,7 +7,7 @@ Original file is located at
     https://colab.research.google.com/drive/1HvCUphCF-PAsJrY7090_HjtdZEPybaKT
 """
 
-!pip install torch-geometric
+# pip install torch-geometric  # Commented out - for Colab use only, not needed in regular Python scripts
 
 import numpy as np
 import torch
@@ -17,6 +17,9 @@ import torch.nn.functional as F
 from torchvision.datasets import CIFAR10
 from torch.utils.data import DataLoader
 from torch_geometric.nn import HypergraphConv, AttentionalAggregation
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend for SSH
+import matplotlib.pyplot as plt
 
 transform = T.Compose([
     T.ToTensor(),
@@ -29,8 +32,8 @@ train_dataset = CIFAR10(root='./data', train=True, download=True, transform=tran
 test_dataset = CIFAR10(root='./data', train=False, download=True, transform=transform)
 
 print(train_dataset.data.shape)
-train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True, num_workers=2)
-test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False, num_workers=2)
+train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
+test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
 
 """# image->hypergraph"""
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH -J dynamic_hypergraph_cifar100
+#SBATCH -J dynamic_hypergraph_cifar10
 #SBATCH -o Output/out_%j.txt
 #SBATCH -e Error/error_%j.txt
 #SBATCH -p gg                                              # Grace Hopper GPU partition

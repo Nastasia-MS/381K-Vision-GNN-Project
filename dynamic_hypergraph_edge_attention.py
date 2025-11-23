@@ -21,16 +21,20 @@ import matplotlib
 matplotlib.use('Agg')  # Use non-interactive backend for SSH
 import matplotlib.pyplot as plt
 import neptune
+import random
 
+# Training transforms with full AugReg stack (RandAugment, Random Erasing)
 transform = T.Compose([
+    T.RandAugment(num_ops=1, magnitude=5),
     T.ToTensor(),
     T.Normalize(
         mean=[0.4914, 0.4822, 0.4465],
         std=[0.2470, 0.2435, 0.2616]
-    )
-    ])
-train_dataset = CIFAR100(root='./data', train=True, download=True, transform=transform)
-test_dataset = CIFAR100(root='./data', train=False, download=True, transform=transform)
+    ),
+    T.RandomErasing(p=0.25, scale=(0.02, 0.33), ratio=(0.3, 3.3), value=0)  # Random Erasing
+])
+train_dataset = CIFAR10(root='./data', train=True, download=True, transform=transform)
+test_dataset = CIFAR10(root='./data', train=False, download=True, transform=transform)
 
 print(train_dataset.data.shape)
 train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
@@ -38,7 +42,23 @@ test_loader = DataLoader(test_dataset, batch_size=16, shuffle=False)
 
 """# image->hypergraph"""
 
-def image_to_dynamic_hypergraph_edge_attention(images, k_spatial=4, k_feature=4, edge_attn=None):
+class ConvStem(nn.Module):
+    """Convolutional stem to extract features before graph construction""" #From GreedyViG
+    def __init__(self):
+        super().__init__()
+        self.stem = nn.Sequential(
+            nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(),
+            nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(),
+        )
+    
+    def forward(self, x):
+        return self.stem(x)
+
+def image_to_dynamic_hypergraph_edge_attention(images, k_spatial=3, k_feature=3, edge_attn=None, patch_size=4):
     batch_node_feats = []
     batch_edge_index = []
     batch_edge_weight = []
@@ -48,11 +68,10 @@ def image_to_dynamic_hypergraph_edge_attention(images, k_spatial=4, k_feature=4,
     for b, img in enumerate(images):
         # img: [C,H,W] -> patches
         C, H, W = img.shape
-        patch_size = 8
         patches = img.unfold(1, patch_size, patch_size).unfold(2, patch_size, patch_size)
-        patches = patches.permute(1,2,0,3,4).contiguous()       # [num_patches_h, num_patches_w, C, 8,8]
-        patches = patches.view(-1, C, patch_size, patch_size)    # [num_nodes, C, 8,8]
-        node_feats = patches.view(patches.size(0), -1).to(images.device)  # [num_nodes, 192]
+        patches = patches.permute(1,2,0,3,4).contiguous()       # [num_patches_h, num_patches_w, C, patch_size, patch_size]
+        patches = patches.view(-1, C, patch_size, patch_size)    # [num_nodes, C, patch_size, patch_size]
+        node_feats = patches.view(patches.size(0), -1).to(images.device)  # [num_nodes, C*patch_size*patch_size]
         num_nodes = node_feats.size(0)
 
         # Spatial edges (static)
@@ -153,24 +172,28 @@ class HyperVigClassifier(nn.Module):
     self.norm2 = nn.LayerNorm(hidden)
     self.conv3 = HypergraphConv(hidden, hidden)
     self.norm3 = nn.LayerNorm(hidden)
-    self.dropout = nn.Dropout(0.3)
+    self.dropout = nn.Dropout(0.1) # changed from 0.3 to 0.1 
     
     # More stable feedforward layer
     self.ff = nn.Sequential(
         nn.Linear(hidden, hidden * 2),
         nn.LayerNorm(hidden * 2),
-        nn.ReLU(),
-        nn.Dropout(0.2),
+        nn.ReLU(), 
+        nn.Dropout(0.1), # changed from 0.2 to 0.1 
         nn.Linear(hidden * 2, hidden)
     )
 
     self.pool = AttentionalAggregation(gate_nn=nn.Sequential(
         nn.Linear(hidden, hidden), 
-        nn.ReLU(), 
+        nn.ReLU(),  
         nn.Dropout(0.1),
         nn.Linear(hidden, 1)
     ))
-    self.classifier = nn.Linear(hidden, num_classes)
+    # Added dropout to classifier 
+    self.classifier = nn.Sequential(
+        nn.Dropout(0.2),
+        nn.Linear(hidden, num_classes)
+    )
     
     # Initialize weights properly
     self._init_weights()
@@ -183,22 +206,21 @@ class HyperVigClassifier(nn.Module):
           nn.init.constant_(m.bias, 0)
 
   def forward(self, x, edge_index, edge_weight, batch_map):
-    x = self.input_proj(x)  # match dimensions (192 -> 256)
+    x = self.input_proj(x)  # match dimensions to hidden
     
     for conv, norm in [(self.conv1, self.norm1), (self.conv2, self.norm2), (self.conv3, self.norm3)]:
         x_res = x
         x = conv(x, edge_index, edge_weight)
         x = norm(x)
-        x = F.relu(x)
+        x = F.relu(x)  
         x = self.dropout(x) + x_res
-        # Clamp to prevent extreme values
-        x = torch.clamp(x, min=-10, max=10)
-    
     x = self.ff(x)
     out = self.pool(x, batch_map)
-    return self.classifier(out)
+    out = self.classifier(out)
+    return out
 
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
+# Training hyperparameters - change max_epochs here and it will be used throughout
+max_epochs = 50  # Number of epochs to train for 100 changed from 50 to 100 to increase training time
 
 # Initialize Neptune monitoring
 try:
@@ -210,19 +232,29 @@ try:
     )
     # Log hyperparameters
     run["parameters"] = {
-        "learning_rate": 0.0005,
+        "learning_rate": 0.002, # changed from 0.001 to 0.002 to increase training time
         "weight_decay": 1e-5,
         "batch_size": 16,
         "hidden_dim": 256,
         "edge_attn_hidden": 64,
-        "num_classes": 100,
-        "patch_size": 8,
-        "in_channels": 192,
-        "max_epochs": 100,
-        "early_stopping_patience": 10,
+        "num_classes": 10,
+        "patch_size": 4, # changed from 8 to 4 
+        "stem_channels": 64,
+        "in_channels": 1024,  # stem_channels * patch_size * patch_size (64 * 4 * 4)
+        "k_spatial": 3, # changed from 4 to 3 
+        "k_feature": 3, # changed from 4 to 3 
+        "max_epochs": max_epochs,
         "scheduler_factor": 0.5,
         "scheduler_patience": 5,
-        "device": device
+        "device": 'cuda' if torch.cuda.is_available() else 'cpu',
+        "mixup_alpha_start": 0.2,
+        "mixup_alpha_end": 0.8,
+        "cutmix_alpha_start": 0.2,
+        "cutmix_alpha_end": 1.0,
+        "augmentation_schedule": "linear_increase",
+        "randaugment_ops": 1,
+        "randaugment_magnitude": 5,
+        "random_erasing_p": 0.25
     }
     neptune_enabled = True
     print("Neptune monitoring initialized successfully")
@@ -232,19 +264,94 @@ except Exception as e:
     neptune_enabled = False
     run = None
 
-model = HyperVigClassifier(in_channels=3*8*8, hidden=256, num_classes=100).to(device)
-edge_attn = EdgeAttention(in_dim=3*8*8, hidden=64).to(device)
+def mixup_data(x, y, alpha=0.8):
+    """Mixup augmentation: sample-level blending"""
+    lam = np.random.beta(alpha, alpha)
+    batch_size = x.size()[0]
+    index = torch.randperm(batch_size).to(x.device)
+    mixed_x = lam * x + (1 - lam) * x[index, :]
+    y_a, y_b = y, y[index]
+    return mixed_x, y_a, y_b, lam
+
+def mixup_criterion(criterion, pred, y_a, y_b, lam):
+    """Mixup loss computation"""
+    return lam * criterion(pred, y_a) + (1 - lam) * criterion(pred, y_b)
+
+def cutmix_data(x, y, alpha=1.0):
+    """CutMix augmentation: patch-level blending"""
+    lam = np.random.beta(alpha, alpha)
+    batch_size = x.size()[0]
+    index = torch.randperm(batch_size).to(x.device)
+    
+    # Get image dimensions (assuming [B, C, H, W])
+    _, _, H, W = x.size()
+    
+    # Generate random bounding box
+    cut_rat = np.sqrt(1.0 - lam)
+    cut_w = int(W * cut_rat)
+    cut_h = int(H * cut_rat)
+    
+    # Random center
+    cx = np.random.randint(W)
+    cy = np.random.randint(H)
+    
+    # Clamp bounding box
+    bbx1 = np.clip(cx - cut_w // 2, 0, W)
+    bby1 = np.clip(cy - cut_h // 2, 0, H)
+    bbx2 = np.clip(cx + cut_w // 2, 0, W)
+    bby2 = np.clip(cy + cut_h // 2, 0, H)
+    
+    # Apply CutMix
+    x[:, :, bby1:bby2, bbx1:bbx2] = x[index, :, bby1:bby2, bbx1:bbx2]
+    
+    # Adjust lambda to match actual pixel ratio
+    lam = 1 - ((bbx2 - bbx1) * (bby2 - bby1) / (W * H))
+    
+    y_a, y_b = y, y[index]
+    return x, y_a, y_b, lam
+
+def cutmix_criterion(criterion, pred, y_a, y_b, lam):
+    """CutMix loss computation"""
+    return lam * criterion(pred, y_a) + (1 - lam) * criterion(pred, y_b)
+
+
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+# Initialize convolutional stem 
+stem = ConvStem().to(device)
+
+patch_size = 4  # Changed from 8 to 4 to prevent underfitting (more nodes per image)
+stem_channels = 64  # ConvStem outputs 64 channels
+in_channels = stem_channels * patch_size * patch_size  # 64 * 4 * 4 = 1024
+
+hidden_dim = 256
+
+model = HyperVigClassifier(in_channels=in_channels, hidden=hidden_dim, num_classes=10).to(device)
+edge_attn = EdgeAttention(in_dim=in_channels, hidden=64).to(device)
 
 # Lower learning rate and add weight decay for stability
-optimizer = torch.optim.Adam(list(model.parameters()) + list(edge_attn.parameters()), 
-                            lr=0.0005, weight_decay=1e-5)
+# Include stem parameters in optimizer
+optimizer = torch.optim.Adam(
+    list(model.parameters()) + list(edge_attn.parameters()) + list(stem.parameters()), 
+    lr=0.002, weight_decay=1e-5  # Increased learning rate (TA requirement)
+)
 # Add learning rate scheduler
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5)
+# Criterion 
 criterion = nn.CrossEntropyLoss()
 
-best_loss = float('inf')
-patience_counter = 0
-max_patience = 10
+# Augmentation schedule: start weak, increase over time
+def get_augmentation_alpha(epoch, max_epochs, start_alpha=0.2, end_alpha_mixup=0.8, end_alpha_cutmix=1.0):
+    """
+    Gradually increase augmentation strength over training
+    - Start with weak augmentation (alpha=0.2) for easier learning
+    - Gradually increase to full strength by end of training
+    """
+    # Linear schedule: start_alpha -> end_alpha over max_epochs
+    progress = epoch / max_epochs
+    mixup_alpha = start_alpha + (end_alpha_mixup - start_alpha) * progress
+    cutmix_alpha = start_alpha + (end_alpha_cutmix - start_alpha) * progress
+    return mixup_alpha, cutmix_alpha
 
 # Lists to store metrics for plotting
 train_losses = []
@@ -252,20 +359,52 @@ train_accuracies = []
 test_losses = []
 test_accuracies = []
 
-for epoch in range(100):
+for epoch in range(max_epochs):
   model.train()
   edge_attn.train()  # Set edge attention to train mode
+  stem.train()  # Set stem to train mode
   total_loss = 0
   correct = 0
   total = 0
   
   for images, labels in train_loader:
     images, labels = images.to(device), labels.to(device)
-    node_feats, edge_index, edge_weight, batch_map = image_to_dynamic_hypergraph_edge_attention(images, edge_attn=edge_attn)
-
+    
     optimizer.zero_grad()
+    
+    # Apply MixUp/CutMix with gradually increasing strength
+    # Start weak (alpha=0.2) and increase to full strength over training
+    mixup_alpha, cutmix_alpha = get_augmentation_alpha(epoch, max_epochs, 
+                                                       start_alpha=0.2, 
+                                                       end_alpha_mixup=0.8, 
+                                                       end_alpha_cutmix=1.0)
+    
+    if random.random() < 0.5:
+        # Apply MixUp with scheduled alpha
+        images, labels_a, labels_b, lam = mixup_data(images, labels, alpha=mixup_alpha)
+        use_cutmix = False
+    else:
+        # Apply CutMix with scheduled alpha
+        images, labels_a, labels_b, lam = cutmix_data(images, labels, alpha=cutmix_alpha)
+        use_cutmix = True
+
+    # Apply convolutional stem before graph construction
+    images = stem(images)
+    
+    # Convert augmented images to dynamic hypergraph format
+    node_feats, edge_index, edge_weight, batch_map = image_to_dynamic_hypergraph_edge_attention(
+        images, edge_attn=edge_attn, patch_size=patch_size
+    )
+    
+    # Forward pass
     outputs = model(node_feats, edge_index, edge_weight, batch_map)
-    loss = criterion(outputs, labels)
+    
+    # Apply appropriate loss (MixUp or CutMix)
+    if use_cutmix:
+        loss = cutmix_criterion(criterion, outputs, labels_a, labels_b, lam)
+    else:
+        loss = mixup_criterion(criterion, outputs, labels_a, labels_b, lam)
+
     
     # Check for NaN before backward
     if torch.isnan(loss) or torch.isinf(loss):
@@ -274,8 +413,11 @@ for epoch in range(100):
     
     loss.backward()
     
-    # Gradient clipping to prevent explosion
-    torch.nn.utils.clip_grad_norm_(list(model.parameters()) + list(edge_attn.parameters()), max_norm=1.0)
+    # Gradient clipping to prevent explosion (include stem)
+    torch.nn.utils.clip_grad_norm_(
+        list(model.parameters()) + list(edge_attn.parameters()) + list(stem.parameters()), 
+        max_norm=1.0
+    )
     
     optimizer.step()
 
@@ -299,13 +441,18 @@ for epoch in range(100):
     # Testing phase
     model.eval()
     edge_attn.eval()
+    stem.eval()
     test_loss = 0
     test_correct = 0
     test_total = 0
     with torch.no_grad():
       for images, labels in test_loader:
         images, labels = images.to(device), labels.to(device)
-        node_feats, edge_index, edge_weight, batch_map = image_to_dynamic_hypergraph_edge_attention(images, edge_attn=edge_attn)
+        # Apply convolutional stem before graph construction
+        images = stem(images)
+        node_feats, edge_index, edge_weight, batch_map = image_to_dynamic_hypergraph_edge_attention(
+            images, edge_attn=edge_attn, patch_size=patch_size
+        )
         outputs = model(node_feats, edge_index, edge_weight, batch_map)
         loss = criterion(outputs, labels)
         
@@ -339,15 +486,6 @@ for epoch in range(100):
         run["test/accuracy"].append(test_acc)
         run["learning_rate"].append(current_lr)
     
-    # Early stopping if loss improves
-    if avg_loss < best_loss:
-      best_loss = avg_loss
-      patience_counter = 0
-    else:
-      patience_counter += 1
-      if patience_counter >= max_patience:
-        print(f"Early stopping at epoch {epoch+1}")
-        break
   else:
     print(f"Epoch {epoch+1}, No valid batches processed")
     break

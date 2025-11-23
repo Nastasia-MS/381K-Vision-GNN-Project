@@ -20,14 +20,19 @@ from torch_geometric.nn import HypergraphConv, AttentionalAggregation
 import matplotlib
 matplotlib.use('Agg')  # Use non-interactive backend for SSH
 import matplotlib.pyplot as plt
+import neptune
+import random
 
+# Training transforms with full AugReg stack (RandAugment, Random Erasing)
 transform = T.Compose([
+    T.RandAugment(num_ops=1, magnitude=5),
     T.ToTensor(),
     T.Normalize(
         mean=[0.4914, 0.4822, 0.4465],
         std=[0.2470, 0.2435, 0.2616]
-    )
-    ])
+    ),
+    T.RandomErasing(p=0.25, scale=(0.02, 0.33), ratio=(0.3, 3.3), value=0)  # Random Erasing
+])
 train_dataset = CIFAR10(root='./data', train=True, download=True, transform=transform)
 test_dataset = CIFAR10(root='./data', train=False, download=True, transform=transform)
 
@@ -240,13 +245,124 @@ model = HyperVigClassifier(
     dropout=0.2
 ).to(device)
 
+# Training hyperparameters - change max_epochs here and it will be used throughout
+max_epochs = 100  # Number of epochs to train for
+
+# Initialize Neptune monitoring
+try:
+    with open('neptune_api_key.txt', 'r') as f:
+        api_token = f.read().strip()
+    run = neptune.init_run(
+        project="31K-ML-Real/381K-Vision-GNN-Project",
+        api_token=api_token,
+    )
+    # Log hyperparameters
+    run["parameters"] = {
+        "learning_rate": 0.001,
+        "weight_decay": 0.01,
+        "batch_size": 64,
+        "hidden_dim": 256,
+        "num_classes": 10,
+        "patch_size": 8,
+        "in_channels": 192,  # 3 * 8 * 8
+        "k_spatial": 4,
+        "k_feature": 4,
+        "max_epochs": max_epochs,
+        "scheduler_type": "CosineAnnealingLR",
+        "device": 'cuda' if torch.cuda.is_available() else 'cpu',
+        "mixup_alpha_start": 0.2,
+        "mixup_alpha_end": 0.8,
+        "cutmix_alpha_start": 0.2,
+        "cutmix_alpha_end": 1.0,
+        "augmentation_schedule": "linear_increase",
+        "randaugment_ops": 1,
+        "randaugment_magnitude": 5,
+        "random_erasing_p": 0.25
+    }
+    neptune_enabled = True
+    print("Neptune monitoring initialized successfully")
+except Exception as e:
+    print(f"Warning: Could not initialize Neptune monitoring: {e}")
+    print("Continuing without Neptune monitoring...")
+    neptune_enabled = False
+    run = None
+
 optimizer = torch.optim.AdamW(model.parameters(), lr=0.001, weight_decay=0.01, eps=1e-8)
 
-scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=100, eta_min=1e-6)
+scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epochs, eta_min=1e-6)
 
 criterion = nn.CrossEntropyLoss()
 
-def train_epoch(model, loader, optimizer, criterion, device):
+def mixup_data(x, y, alpha=0.8):
+    """Mixup augmentation: sample-level blending"""
+    lam = np.random.beta(alpha, alpha)
+    batch_size = x.size()[0]
+    index = torch.randperm(batch_size).to(x.device)
+    mixed_x = lam * x + (1 - lam) * x[index, :]
+    y_a, y_b = y, y[index]
+    return mixed_x, y_a, y_b, lam
+
+def mixup_criterion(criterion, pred, y_a, y_b, lam):
+    """Mixup loss computation"""
+    return lam * criterion(pred, y_a) + (1 - lam) * criterion(pred, y_b)
+
+def cutmix_data(x, y, alpha=1.0):
+    """CutMix augmentation: patch-level blending"""
+    lam = np.random.beta(alpha, alpha)
+    batch_size = x.size()[0]
+    index = torch.randperm(batch_size).to(x.device)
+    
+    # Get image dimensions (assuming [B, C, H, W])
+    _, _, H, W = x.size()
+    
+    # Generate random bounding box
+    cut_rat = np.sqrt(1.0 - lam)
+    cut_w = int(W * cut_rat)
+    cut_h = int(H * cut_rat)
+    
+    # Random center
+    cx = np.random.randint(W)
+    cy = np.random.randint(H)
+    
+    # Clamp bounding box
+    bbx1 = np.clip(cx - cut_w // 2, 0, W)
+    bby1 = np.clip(cy - cut_h // 2, 0, H)
+    bbx2 = np.clip(cx + cut_w // 2, 0, W)
+    bby2 = np.clip(cy + cut_h // 2, 0, H)
+    
+    # Apply CutMix
+    x[:, :, bby1:bby2, bbx1:bbx2] = x[index, :, bby1:bby2, bbx1:bbx2]
+    
+    # Adjust lambda to match actual pixel ratio
+    lam = 1 - ((bbx2 - bbx1) * (bby2 - bby1) / (W * H))
+    
+    y_a, y_b = y, y[index]
+    return x, y_a, y_b, lam
+
+def cutmix_criterion(criterion, pred, y_a, y_b, lam):
+    """CutMix loss computation"""
+    return lam * criterion(pred, y_a) + (1 - lam) * criterion(pred, y_b)
+
+# Augmentation schedule: start weak, increase over time
+def get_augmentation_alpha(epoch, max_epochs, start_alpha=0.2, end_alpha_mixup=0.8, end_alpha_cutmix=1.0):
+    """
+    Gradually increase augmentation strength over training
+    - Start with weak augmentation (alpha=0.2) for easier learning
+    - Gradually increase to full strength by end of training
+    """
+    # Linear schedule: start_alpha -> end_alpha over max_epochs
+    progress = epoch / max_epochs
+    mixup_alpha = start_alpha + (end_alpha_mixup - start_alpha) * progress
+    cutmix_alpha = start_alpha + (end_alpha_cutmix - start_alpha) * progress
+    return mixup_alpha, cutmix_alpha
+
+# Lists to store metrics for plotting
+train_losses = []
+train_accuracies = []
+val_losses = []
+val_accuracies = []
+
+def train_epoch(model, loader, optimizer, criterion, device, epoch, max_epochs):
     model.train()
     total_loss = 0
     correct = 0
@@ -254,12 +370,39 @@ def train_epoch(model, loader, optimizer, criterion, device):
 
     for images, labels in loader:
         images, labels = images.to(device), labels.to(device)
+        
+        optimizer.zero_grad()
+        
+        # Apply MixUp/CutMix with gradually increasing strength
+        mixup_alpha, cutmix_alpha = get_augmentation_alpha(epoch, max_epochs, 
+                                                           start_alpha=0.2, 
+                                                           end_alpha_mixup=0.8, 
+                                                           end_alpha_cutmix=1.0)
+        
+        if random.random() < 0.5:
+            # Apply MixUp with scheduled alpha
+            images, labels_a, labels_b, lam = mixup_data(images, labels, alpha=mixup_alpha)
+            use_cutmix = False
+        else:
+            # Apply CutMix with scheduled alpha
+            images, labels_a, labels_b, lam = cutmix_data(images, labels, alpha=cutmix_alpha)
+            use_cutmix = True
 
         node_feats, edge_index, batch_map = image_to_true_hypergraph(images)
 
-        optimizer.zero_grad()
         outputs = model(node_feats, edge_index, batch_map)
-        loss = criterion(outputs, labels)
+        
+        # Apply appropriate loss (MixUp or CutMix)
+        if use_cutmix:
+            loss = cutmix_criterion(criterion, outputs, labels_a, labels_b, lam)
+        else:
+            loss = mixup_criterion(criterion, outputs, labels_a, labels_b, lam)
+        
+        # Check for NaN before backward
+        if torch.isnan(loss) or torch.isinf(loss):
+            print(f"NaN/Inf detected at epoch {epoch+1}, batch, stopping training")
+            return None, None
+        
         loss.backward()
 
         # Gradient clipping for stability
@@ -297,23 +440,95 @@ def validate(model, loader, criterion, device):
 
 # Training loop with validation
 best_val_acc = 0.0
-for epoch in range(100):
-    train_loss, train_acc = train_epoch(model, train_loader, optimizer, criterion, device)
+for epoch in range(max_epochs):
+    train_loss, train_acc = train_epoch(model, train_loader, optimizer, criterion, device, epoch, max_epochs)
+    
+    # Check if training returned None (NaN detected)
+    if train_loss is None or train_acc is None:
+        print(f"Training stopped due to NaN/Inf at epoch {epoch+1}")
+        break
+    
     val_loss, val_acc = validate(model, test_loader, criterion, device)
 
     scheduler.step()
+    current_lr = scheduler.get_last_lr()[0]
 
     if np.isnan(train_loss) or np.isnan(val_loss):
         print(f"NaN detected at epoch {epoch+1}! Training stopped.")
         break
 
+    # Store metrics for plotting
+    train_losses.append(train_loss)
+    train_accuracies.append(train_acc)
+    val_losses.append(val_loss)
+    val_accuracies.append(val_acc)
+
     if val_acc > best_val_acc:
         best_val_acc = val_acc
         torch.save(model.state_dict(), 'best_hypergraph_model.pth')
 
-    print(f"Epoch {epoch+1}/100 | "
+    print(f"Epoch {epoch+1}/{max_epochs} | "
           f"Train Loss: {train_loss:.4f} | Train Acc: {train_acc:.4f} | "
           f"Val Loss: {val_loss:.4f} | Val Acc: {val_acc:.4f} | "
-          f"LR: {scheduler.get_last_lr()[0]:.6f}")
+          f"LR: {current_lr:.6f}")
+    
+    # Log metrics to Neptune
+    if neptune_enabled and run is not None:
+        run["train/loss"].append(train_loss)
+        run["train/accuracy"].append(train_acc)
+        run["val/loss"].append(val_loss)
+        run["val/accuracy"].append(val_acc)
+        run["learning_rate"].append(current_lr)
 
 print(f"\nBest Validation Accuracy: {best_val_acc:.4f}")
+
+# Plotting - only if we have data
+if len(train_losses) > 0 and len(val_losses) > 0:
+    try:
+        plt.figure(figsize=(12, 5))
+
+        # Plot loss
+        plt.subplot(1, 2, 1)
+        plt.plot(range(1, len(train_losses) + 1), train_losses, label='Train Loss', marker='o')
+        plt.plot(range(1, len(val_losses) + 1), val_losses, label='Val Loss', marker='s')
+        plt.xlabel('Epoch')
+        plt.ylabel('Loss')
+        plt.title('Training and Validation Loss')
+        plt.legend()
+        plt.grid(True)
+
+        # Plot accuracy
+        plt.subplot(1, 2, 2)
+        plt.plot(range(1, len(train_accuracies) + 1), train_accuracies, label='Train Accuracy', marker='o')
+        plt.plot(range(1, len(val_accuracies) + 1), val_accuracies, label='Val Accuracy', marker='s')
+        plt.xlabel('Epoch')
+        plt.ylabel('Accuracy')
+        plt.title('Training and Validation Accuracy')
+        plt.legend()
+        plt.grid(True)
+
+        plt.tight_layout()
+        plt.savefig('training_curves.png', dpi=150, bbox_inches='tight')
+        print(f"\nTraining curves saved to 'training_curves.png'")
+        
+        # Upload plot to Neptune
+        if neptune_enabled and run is not None:
+            try:
+                run["training_curves"].upload('training_curves.png')
+                print("Training curves uploaded to Neptune")
+            except Exception as e:
+                print(f"Warning: Could not upload plot to Neptune: {e}")
+        
+        plt.close()  # Close the figure to free memory
+    except Exception as e:
+        print(f"Warning: Could not create plots: {e}")
+else:
+    print("Warning: No training data collected, skipping plot generation")
+
+# Stop Neptune run
+if neptune_enabled and run is not None:
+    try:
+        run.stop()
+        print("Neptune run stopped successfully")
+    except Exception as e:
+        print(f"Warning: Could not stop Neptune run: {e}")

@@ -31,7 +31,7 @@ echo "=========================================="
 # ==============================
 python --version
 which python
-python dynamic_hypergraph_edge_attention.py
+python dynamic_hypergraph_edge_attention-v3.py
 
 echo "=========================================="
 echo "End Time: $(date)"

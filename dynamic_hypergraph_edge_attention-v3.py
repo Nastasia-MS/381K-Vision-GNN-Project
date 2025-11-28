@@ -103,12 +103,16 @@ def image_to_true_hypergraph(images, k_spatial=4, k_feature=4):
 
 class HyperedgeAttention(nn.Module):
     """Learnable hyperedge attention that's part of the model's forward pass"""
-    def __init__(self, in_dim, hidden=64):
+    def __init__(self, in_dim, hidden=128):
         super().__init__()
         self.mlp = nn.Sequential(
             nn.Linear(in_dim, hidden),
             nn.ReLU(),
-            nn.Linear(hidden, 1)
+            nn.Dropout(0.1),
+            nn.Linear(hidden, hidden // 2),
+            nn.ReLU(),
+            nn.Dropout(0.1),
+            nn.Linear(hidden // 2, 1)
         )
         self._init_weights()
 
@@ -149,19 +153,24 @@ class HyperedgeAttention(nn.Module):
         return torch.sigmoid(alpha) * 0.9 + 0.1
 
 class HypergraphBlock(nn.Module):
-    def __init__(self, hidden_dim, dropout=0.3, ffn_expansion=2):
+    def __init__(self, hidden_dim, dropout=0.3, ffn_expansion=2, num_ffn_layers=2):
         super().__init__()
         self.conv = HypergraphConv(hidden_dim, hidden_dim)
         self.norm1 = nn.LayerNorm(hidden_dim, eps=1e-5)
         self.dropout = nn.Dropout(dropout)
 
-        self.ffn = nn.Sequential(
-            nn.Linear(hidden_dim, hidden_dim * ffn_expansion),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(hidden_dim * ffn_expansion, hidden_dim)
-        )
-        self.norm2 = nn.LayerNorm(hidden_dim, eps=1e-5)
+        # Deeper FFN with multiple layers
+        self.ffn_layers = nn.ModuleList([
+            nn.Sequential(
+                nn.Linear(hidden_dim, hidden_dim * ffn_expansion),
+                nn.ReLU(),
+                nn.Dropout(dropout),
+                nn.Linear(hidden_dim * ffn_expansion, hidden_dim)
+            ) for _ in range(num_ffn_layers)
+        ])
+        self.ffn_norms = nn.ModuleList([
+            nn.LayerNorm(hidden_dim, eps=1e-5) for _ in range(num_ffn_layers)
+        ])
 
     def forward(self, x, edge_index, edge_weight):
         # Hypergraph conv w/ residual
@@ -170,40 +179,50 @@ class HypergraphBlock(nn.Module):
         x = self.norm1(x)
         x = self.dropout(F.relu(x)) + x_res
 
-        # Feedforward network w/ residual
-        x_res = x
-        x = self.ffn(x)
-        x = self.norm2(x)
-        x = self.dropout(x) + x_res
+        # Stack multiple FFN layers w/ residual connections
+        for ffn, norm in zip(self.ffn_layers, self.ffn_norms):
+            x_res = x
+            x = ffn(x)
+            x = norm(x)
+            x = self.dropout(x) + x_res
 
         return x
 
 class HyperVigClassifier(nn.Module):
-    def __init__(self, in_channels, hidden, num_classes, num_blocks=3, dropout=0.3):
+    def __init__(self, in_channels, hidden, num_classes, num_blocks=5, dropout=0.3, num_ffn_layers=2):
         super().__init__()
         self.hidden = hidden
         self.input_proj = nn.Linear(in_channels, hidden)
-        self.edge_attn = HyperedgeAttention(in_dim=hidden, hidden=64)
+        self.edge_attn = HyperedgeAttention(in_dim=hidden, hidden=128)  # Increased from 64 to 128
 
-        # Multiple hypergraph blocks (each with its own FFN)
+        # Multiple hypergraph blocks (increased from 3 to 5)
         self.blocks = nn.ModuleList([
-            HypergraphBlock(hidden, dropout=dropout)
+            HypergraphBlock(hidden, dropout=dropout, num_ffn_layers=num_ffn_layers)
             for _ in range(num_blocks)
         ])
 
+        # Deeper pooling gate network
         self.pool = AttentionalAggregation(
             gate_nn=nn.Sequential(
                 nn.Linear(hidden, hidden),
                 nn.ReLU(),
-                nn.Linear(hidden, 1)
+                nn.Dropout(0.1),
+                nn.Linear(hidden, hidden // 2),
+                nn.ReLU(),
+                nn.Dropout(0.1),
+                nn.Linear(hidden // 2, 1)
             )
         )
 
+        # Deeper classifier with intermediate layer
         self.classifier = nn.Sequential(
             nn.Linear(hidden, hidden),
             nn.ReLU(),
             nn.Dropout(0.5),
-            nn.Linear(hidden, num_classes)
+            nn.Linear(hidden, hidden // 2),
+            nn.ReLU(),
+            nn.Dropout(0.5),
+            nn.Linear(hidden // 2, num_classes)
         )
 
         self._init_weights()
@@ -239,10 +258,11 @@ print(f"Using device: {device}")
 
 model = HyperVigClassifier(
     in_channels=3*8*8,  # 192 features per patch
-    hidden=256,
+    hidden=512,  # Increased from 256 to 512
     num_classes=10,
-    num_blocks=3,
-    dropout=0.2
+    num_blocks=5,  # Increased from 3 to 5
+    dropout=0.2,
+    num_ffn_layers=2  # Stack 2 FFN layers per block
 ).to(device)
 
 # Training hyperparameters - change max_epochs here and it will be used throughout
@@ -261,7 +281,10 @@ try:
         "learning_rate": 0.001,
         "weight_decay": 0.01,
         "batch_size": 64,
-        "hidden_dim": 256,
+        "hidden_dim": 512,
+        "num_blocks": 5,
+        "num_ffn_layers": 2,
+        "edge_attn_hidden": 128,
         "num_classes": 10,
         "patch_size": 8,
         "in_channels": 192,  # 3 * 8 * 8

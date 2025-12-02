@@ -740,10 +740,73 @@ class HyperVigClassifier(nn.Module):
 
 
 # ============================================================================
+# Augmentation Functions
+# ============================================================================
+
+def mixup_data(x, y, alpha=0.8):
+    """MixUp augmentation: sample-level blending"""
+    if alpha > 0:
+        lam = np.random.beta(alpha, alpha)
+    else:
+        lam = 1
+    
+    batch_size = x.size()[0]
+    index = torch.randperm(batch_size).to(x.device)
+    mixed_x = lam * x + (1 - lam) * x[index, :]
+    y_a, y_b = y, y[index]
+    return mixed_x, y_a, y_b, lam
+
+def mixup_criterion(criterion, pred, y_a, y_b, lam):
+    """MixUp loss computation"""
+    return lam * criterion(pred, y_a) + (1 - lam) * criterion(pred, y_b)
+
+def cutmix_data(x, y, alpha=1.0):
+    """CutMix augmentation: patch-level blending"""
+    if alpha > 0:
+        lam = np.random.beta(alpha, alpha)
+    else:
+        lam = 1
+    
+    batch_size = x.size()[0]
+    index = torch.randperm(batch_size).to(x.device)
+    
+    # Get image dimensions (assuming [B, C, H, W])
+    _, _, H, W = x.size()
+    
+    # Generate random bounding box
+    cut_rat = np.sqrt(1.0 - lam)
+    cut_w = int(W * cut_rat)
+    cut_h = int(H * cut_rat)
+    
+    # Random center
+    cx = np.random.randint(W)
+    cy = np.random.randint(H)
+    
+    # Clamp bounding box
+    bbx1 = np.clip(cx - cut_w // 2, 0, W)
+    bby1 = np.clip(cy - cut_h // 2, 0, H)
+    bbx2 = np.clip(cx + cut_w // 2, 0, W)
+    bby2 = np.clip(cy + cut_h // 2, 0, H)
+    
+    # Apply CutMix
+    x[:, :, bby1:bby2, bbx1:bbx2] = x[index, :, bby1:bby2, bbx1:bbx2]
+    
+    # Adjust lambda to match actual pixel ratio
+    lam = 1 - ((bbx2 - bbx1) * (bby2 - bby1) / (W * H))
+    
+    y_a, y_b = y, y[index]
+    return x, y_a, y_b, lam
+
+def cutmix_criterion(criterion, pred, y_a, y_b, lam):
+    """CutMix loss computation"""
+    return lam * criterion(pred, y_a) + (1 - lam) * criterion(pred, y_b)
+
+
+# ============================================================================
 # Training Functions
 # ============================================================================
 
-def train_epoch(model, loader, optimizer, criterion, device):
+def train_epoch(model, loader, optimizer, criterion, device, mixup_alpha=0.8, cutmix_alpha=1.0, mixup_prob=0.5):
     model.train()
     total_loss = 0
     correct = 0
@@ -754,14 +817,36 @@ def train_epoch(model, loader, optimizer, criterion, device):
 
         optimizer.zero_grad()
         
+        # Apply MixUp/CutMix augmentation
+        use_cutmix = False
+        if np.random.rand() < mixup_prob:
+            if np.random.rand() < 0.5:
+                # Apply MixUp
+                images, labels_a, labels_b, lam = mixup_data(images, labels, alpha=mixup_alpha)
+            else:
+                # Apply CutMix
+                images, labels_a, labels_b, lam = cutmix_data(images, labels, alpha=cutmix_alpha)
+                use_cutmix = True
+        else:
+            # No augmentation
+            labels_a, labels_b = labels, labels
+            lam = 1.0
+        
         # For LearnablePatchHyperViG, model takes images directly
         if isinstance(model, LearnablePatchHyperViG):
             outputs = model(images)
-            loss = criterion(outputs, labels)
         else:
             # For other models that use image_to_true_hypergraph
             node_feats, edge_index, batch_map = image_to_true_hypergraph(images)
             outputs = model(node_feats, edge_index, batch_map)
+        
+        # Compute loss with MixUp/CutMix if applied
+        if lam < 1.0:
+            if use_cutmix:
+                loss = cutmix_criterion(criterion, outputs, labels_a, labels_b, lam)
+            else:
+                loss = mixup_criterion(criterion, outputs, labels_a, labels_b, lam)
+        else:
             loss = criterion(outputs, labels)
 
         # Check for NaN/Inf
@@ -819,13 +904,18 @@ def validate(model, loader, criterion, device):
 def main():
     parser = argparse.ArgumentParser(description='Train Dynamic Hypergraph Edge Attention Model')
     parser.add_argument('--data_dir', type=str, default='./data', help='Directory for CIFAR10 data')
-    parser.add_argument('--batch_size', type=int, default=128, help='Batch size')
+    parser.add_argument('--batch_size', type=int, default=256, help='Batch size')
     parser.add_argument('--epochs', type=int, default=120, help='Number of epochs')
     parser.add_argument('--lr', type=float, default=0.002, help='Learning rate')
-    parser.add_argument('--weight_decay', type=float, default=0.005, help='Weight decay')
-    parser.add_argument('--hidden', type=int, default=384, help='Hidden dimension')
+    parser.add_argument('--weight_decay', type=float, default=0.01, help='Weight decay')
+    parser.add_argument('--hidden', type=int, default=320, help='Hidden dimension')
     parser.add_argument('--num_patches', type=int, default=16, help='Number of patches')
-    parser.add_argument('--dropout', type=float, default=0.2, help='Dropout rate')
+    parser.add_argument('--dropout', type=float, default=0.3, help='Dropout rate')
+    parser.add_argument('--label_smoothing', type=float, default=0.1, help='Label smoothing factor')
+    parser.add_argument('--early_stop_patience', type=int, default=15, help='Early stopping patience')
+    parser.add_argument('--mixup_alpha', type=float, default=0.8, help='MixUp alpha parameter')
+    parser.add_argument('--cutmix_alpha', type=float, default=1.0, help='CutMix alpha parameter')
+    parser.add_argument('--mixup_prob', type=float, default=0.5, help='Probability of applying MixUp/CutMix')
     parser.add_argument('--num_workers', type=int, default=2, help='Number of data loader workers')
     parser.add_argument('--save_dir', type=str, default='./checkpoints', help='Directory to save checkpoints')
     parser.add_argument('--save_freq', type=int, default=10, help='Save checkpoint every N epochs')
@@ -889,8 +979,18 @@ def main():
     else:
         print("Neptune not available. Continuing without Neptune monitoring.")
 
-    # Data loading
-    transform = T.Compose([
+    # Data loading with augmentation
+    train_transform = T.Compose([
+        T.RandomCrop(32, padding=4),  # Random crop with padding
+        T.RandomHorizontalFlip(p=0.5),  # Random horizontal flip
+        T.ToTensor(),
+        T.Normalize(
+            mean=[0.4914, 0.4822, 0.4465],
+            std=[0.2470, 0.2435, 0.2616]
+        )
+    ])
+    
+    test_transform = T.Compose([
         T.ToTensor(),
         T.Normalize(
             mean=[0.4914, 0.4822, 0.4465],
@@ -899,8 +999,8 @@ def main():
     ])
     
     print("Loading CIFAR10 dataset...")
-    train_dataset = CIFAR10(root=args.data_dir, train=True, download=True, transform=transform)
-    test_dataset = CIFAR10(root=args.data_dir, train=False, download=True, transform=transform)
+    train_dataset = CIFAR10(root=args.data_dir, train=True, download=True, transform=train_transform)
+    test_dataset = CIFAR10(root=args.data_dir, train=False, download=True, transform=test_transform)
     
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
@@ -910,10 +1010,11 @@ def main():
 
     # Model
     print("Initializing model...")
+    # Slightly reduce model capacity to reduce overfitting
     model = LearnablePatchHyperViG(
         hidden=args.hidden,
         num_classes=10,
-        num_blocks=6,
+        num_blocks=5,  # Reduced from 6 to 5
         dropout=args.dropout,
         k=8
     ).to(device)
@@ -927,7 +1028,12 @@ def main():
     # Optimizer and scheduler
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs, eta_min=1e-5)
-    criterion = nn.CrossEntropyLoss()
+    
+    # Label smoothing loss
+    if args.label_smoothing > 0:
+        criterion = nn.CrossEntropyLoss(label_smoothing=args.label_smoothing)
+    else:
+        criterion = nn.CrossEntropyLoss()
 
     # Lists to store metrics for plotting
     train_losses = []
@@ -935,8 +1041,10 @@ def main():
     val_losses = []
     val_accuracies = []
 
-    # Training loop
+    # Training loop with early stopping
     best_acc = 0.0
+    patience_counter = 0
+    best_epoch = 0
     
     print("\nStarting training...")
     for epoch in range(args.epochs):
@@ -945,7 +1053,12 @@ def main():
         print(f"Learning rate: {current_lr:.6f}")
         
         # Train
-        train_loss, train_acc = train_epoch(model, train_loader, optimizer, criterion, device)
+        train_loss, train_acc = train_epoch(
+            model, train_loader, optimizer, criterion, device,
+            mixup_alpha=args.mixup_alpha,
+            cutmix_alpha=args.cutmix_alpha,
+            mixup_prob=args.mixup_prob
+        )
         
         # Check if training returned None (NaN detected)
         if train_loss is None or train_acc is None:
@@ -983,8 +1096,13 @@ def main():
             except Exception as e:
                 print(f"Warning: Could not log to Neptune: {e}")
         
-        # Save checkpoint
-        if (epoch + 1) % args.save_freq == 0 or val_acc > best_acc:
+        # Early stopping check
+        if val_acc > best_acc:
+            best_acc = val_acc
+            best_epoch = epoch + 1
+            patience_counter = 0
+            
+            # Save best model
             checkpoint = {
                 'epoch': epoch + 1,
                 'model_state_dict': model.state_dict(),
@@ -995,14 +1113,29 @@ def main():
                 'val_loss': val_loss,
                 'val_acc': val_acc,
             }
-            
-            if val_acc > best_acc:
-                best_acc = val_acc
-                checkpoint_path = os.path.join(args.save_dir, 'best_model.pth')
-                print(f"New best model! Saving to {checkpoint_path}")
-            else:
-                checkpoint_path = os.path.join(args.save_dir, f'checkpoint_epoch_{epoch+1}.pth')
-            
+            checkpoint_path = os.path.join(args.save_dir, 'best_model.pth')
+            torch.save(checkpoint, checkpoint_path)
+            print(f"New best model! Saving to {checkpoint_path}")
+        else:
+            patience_counter += 1
+            if patience_counter >= args.early_stop_patience:
+                print(f"\nEarly stopping triggered! No improvement for {args.early_stop_patience} epochs.")
+                print(f"Best validation accuracy: {best_acc*100:.2f}% at epoch {best_epoch}")
+                break
+        
+        # Save periodic checkpoints
+        if (epoch + 1) % args.save_freq == 0:
+            checkpoint = {
+                'epoch': epoch + 1,
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'scheduler_state_dict': scheduler.state_dict(),
+                'train_loss': train_loss,
+                'train_acc': train_acc,
+                'val_loss': val_loss,
+                'val_acc': val_acc,
+            }
+            checkpoint_path = os.path.join(args.save_dir, f'checkpoint_epoch_{epoch+1}.pth')
             torch.save(checkpoint, checkpoint_path)
     
     print(f"\nTraining completed! Best validation accuracy: {best_acc*100:.2f}%")

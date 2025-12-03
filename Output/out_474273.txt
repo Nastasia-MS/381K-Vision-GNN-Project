@@ -1,0 +1,699 @@
+==========================================
+Job ID: 474273
+Node(s): i614-[112,134],i615-061,i617-[052,074,081]
+Start Time: Tue Dec  2 06:13:52 PM CST 2025
+Working Directory: /home1/11112/rasmus1142/381K-Vision-GNN-Project
+==========================================
+Python 3.9.18
+/home1/11112/rasmus1142/381K-Vision-GNN-Project/venv/bin/python
+Using device: cpu
+[neptune] [info   ] Neptune initialized. Open in the app: https://app.neptune.ai/31K-ML-Real/381K-Vision-GNN-Project/e/KVIS-17
+Neptune monitoring initialized successfully
+Loading CIFAR10 dataset...
+Train dataset size: 50000
+Test dataset size: 10000
+Initializing model...
+Total parameters: 2,864,147
+Trainable parameters: 2,864,147
+
+Starting training...
+
+Epoch 1/120
+Learning rate: 0.002000
+Train Loss: 2.4636, Train Acc: 13.89%
+Val Loss: 2.1824, Val Acc: 19.85%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 2/120
+Learning rate: 0.002000
+Train Loss: 2.2296, Train Acc: 15.69%
+Val Loss: 2.1462, Val Acc: 20.95%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 3/120
+Learning rate: 0.001999
+Train Loss: 2.2075, Train Acc: 16.39%
+Val Loss: 2.1043, Val Acc: 21.50%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 4/120
+Learning rate: 0.001997
+Train Loss: 2.1776, Train Acc: 17.54%
+Val Loss: 2.0559, Val Acc: 23.23%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 5/120
+Learning rate: 0.001995
+Train Loss: 2.1530, Train Acc: 19.19%
+Val Loss: 2.0245, Val Acc: 25.72%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 6/120
+Learning rate: 0.001991
+Train Loss: 2.1319, Train Acc: 20.06%
+Val Loss: 1.9927, Val Acc: 26.68%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 7/120
+Learning rate: 0.001988
+Train Loss: 2.1288, Train Acc: 20.25%
+Val Loss: 1.9635, Val Acc: 27.84%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 8/120
+Learning rate: 0.001983
+Train Loss: 2.0888, Train Acc: 22.25%
+Val Loss: 1.9779, Val Acc: 26.15%
+
+Epoch 9/120
+Learning rate: 0.001978
+Train Loss: 2.0894, Train Acc: 22.31%
+Val Loss: 1.9524, Val Acc: 30.72%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 10/120
+Learning rate: 0.001973
+Train Loss: 2.0549, Train Acc: 23.63%
+Val Loss: 1.8982, Val Acc: 31.53%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 11/120
+Learning rate: 0.001966
+Train Loss: 2.0413, Train Acc: 24.93%
+Val Loss: 1.8856, Val Acc: 30.54%
+
+Epoch 12/120
+Learning rate: 0.001959
+Train Loss: 2.0418, Train Acc: 24.77%
+Val Loss: 1.8949, Val Acc: 32.06%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 13/120
+Learning rate: 0.001951
+Train Loss: 2.0396, Train Acc: 25.49%
+Val Loss: 1.8745, Val Acc: 33.27%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 14/120
+Learning rate: 0.001943
+Train Loss: 2.0182, Train Acc: 26.58%
+Val Loss: 1.9242, Val Acc: 31.40%
+
+Epoch 15/120
+Learning rate: 0.001934
+Train Loss: 2.0260, Train Acc: 25.91%
+Val Loss: 1.8631, Val Acc: 34.69%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 16/120
+Learning rate: 0.001924
+Train Loss: 2.0201, Train Acc: 26.93%
+Val Loss: 1.8521, Val Acc: 36.70%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 17/120
+Learning rate: 0.001914
+Train Loss: 1.9988, Train Acc: 27.79%
+Val Loss: 1.8319, Val Acc: 37.12%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 18/120
+Learning rate: 0.001903
+Train Loss: 1.9792, Train Acc: 29.38%
+Val Loss: 1.8047, Val Acc: 38.80%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 19/120
+Learning rate: 0.001892
+Train Loss: 1.9609, Train Acc: 30.45%
+Val Loss: 1.7965, Val Acc: 39.87%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 20/120
+Learning rate: 0.001879
+Train Loss: 1.9354, Train Acc: 31.54%
+Val Loss: 1.7675, Val Acc: 41.01%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 21/120
+Learning rate: 0.001867
+Train Loss: 1.9394, Train Acc: 32.93%
+Val Loss: 1.7103, Val Acc: 43.29%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 22/120
+Learning rate: 0.001853
+Train Loss: 1.9116, Train Acc: 33.38%
+Val Loss: 1.7279, Val Acc: 44.89%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 23/120
+Learning rate: 0.001839
+Train Loss: 1.9188, Train Acc: 33.20%
+Val Loss: 1.6860, Val Acc: 45.71%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 24/120
+Learning rate: 0.001825
+Train Loss: 1.8994, Train Acc: 34.22%
+Val Loss: 1.7021, Val Acc: 45.55%
+
+Epoch 25/120
+Learning rate: 0.001810
+Train Loss: 1.8803, Train Acc: 35.31%
+Val Loss: 1.6720, Val Acc: 46.65%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 26/120
+Learning rate: 0.001794
+Train Loss: 1.8828, Train Acc: 36.51%
+Val Loss: 1.6448, Val Acc: 48.28%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 27/120
+Learning rate: 0.001778
+Train Loss: 1.8620, Train Acc: 36.01%
+Val Loss: 1.6185, Val Acc: 48.48%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 28/120
+Learning rate: 0.001762
+Train Loss: 1.8528, Train Acc: 36.35%
+Val Loss: 1.6377, Val Acc: 47.80%
+
+Epoch 29/120
+Learning rate: 0.001744
+Train Loss: 1.8447, Train Acc: 38.24%
+Val Loss: 1.5906, Val Acc: 50.63%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 30/120
+Learning rate: 0.001727
+Train Loss: 1.8292, Train Acc: 39.46%
+Val Loss: 1.6044, Val Acc: 50.65%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 31/120
+Learning rate: 0.001709
+Train Loss: 1.8286, Train Acc: 38.50%
+Val Loss: 1.5742, Val Acc: 50.83%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 32/120
+Learning rate: 0.001690
+Train Loss: 1.8312, Train Acc: 39.57%
+Val Loss: 1.5667, Val Acc: 52.21%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 33/120
+Learning rate: 0.001671
+Train Loss: 1.8162, Train Acc: 39.68%
+Val Loss: 1.5747, Val Acc: 52.35%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 34/120
+Learning rate: 0.001651
+Train Loss: 1.7865, Train Acc: 41.98%
+Val Loss: 1.5594, Val Acc: 52.38%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 35/120
+Learning rate: 0.001631
+Train Loss: 1.7987, Train Acc: 40.50%
+Val Loss: 1.5331, Val Acc: 53.41%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 36/120
+Learning rate: 0.001611
+Train Loss: 1.7650, Train Acc: 41.93%
+Val Loss: 1.5682, Val Acc: 52.68%
+
+Epoch 37/120
+Learning rate: 0.001590
+Train Loss: 1.7441, Train Acc: 42.11%
+Val Loss: 1.5365, Val Acc: 53.99%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 38/120
+Learning rate: 0.001569
+Train Loss: 1.7386, Train Acc: 44.04%
+Val Loss: 1.4843, Val Acc: 56.01%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 39/120
+Learning rate: 0.001547
+Train Loss: 1.7613, Train Acc: 43.36%
+Val Loss: 1.4909, Val Acc: 55.81%
+
+Epoch 40/120
+Learning rate: 0.001525
+Train Loss: 1.7284, Train Acc: 44.51%
+Val Loss: 1.4691, Val Acc: 56.84%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 41/120
+Learning rate: 0.001502
+Train Loss: 1.7657, Train Acc: 43.26%
+Val Loss: 1.4900, Val Acc: 57.90%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 42/120
+Learning rate: 0.001480
+Train Loss: 1.7296, Train Acc: 43.45%
+Val Loss: 1.4591, Val Acc: 57.02%
+
+Epoch 43/120
+Learning rate: 0.001457
+Train Loss: 1.7351, Train Acc: 43.82%
+Val Loss: 1.4883, Val Acc: 56.72%
+
+Epoch 44/120
+Learning rate: 0.001433
+Train Loss: 1.7233, Train Acc: 45.86%
+Val Loss: 1.4457, Val Acc: 58.51%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 45/120
+Learning rate: 0.001410
+Train Loss: 1.6983, Train Acc: 45.22%
+Val Loss: 1.4397, Val Acc: 58.21%
+
+Epoch 46/120
+Learning rate: 0.001386
+Train Loss: 1.6780, Train Acc: 45.78%
+Val Loss: 1.4380, Val Acc: 58.20%
+
+Epoch 47/120
+Learning rate: 0.001362
+Train Loss: 1.6805, Train Acc: 46.35%
+Val Loss: 1.4181, Val Acc: 59.80%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 48/120
+Learning rate: 0.001337
+Train Loss: 1.6791, Train Acc: 48.69%
+Val Loss: 1.4228, Val Acc: 60.03%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 49/120
+Learning rate: 0.001312
+Train Loss: 1.6829, Train Acc: 47.17%
+Val Loss: 1.4195, Val Acc: 59.34%
+
+Epoch 50/120
+Learning rate: 0.001288
+Train Loss: 1.6878, Train Acc: 47.14%
+Val Loss: 1.3982, Val Acc: 60.04%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 51/120
+Learning rate: 0.001263
+Train Loss: 1.6818, Train Acc: 46.19%
+Val Loss: 1.3690, Val Acc: 60.80%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 52/120
+Learning rate: 0.001237
+Train Loss: 1.6718, Train Acc: 46.53%
+Val Loss: 1.3977, Val Acc: 60.80%
+
+Epoch 53/120
+Learning rate: 0.001212
+Train Loss: 1.6675, Train Acc: 48.19%
+Val Loss: 1.3986, Val Acc: 59.86%
+
+Epoch 54/120
+Learning rate: 0.001186
+Train Loss: 1.6717, Train Acc: 47.78%
+Val Loss: 1.3636, Val Acc: 61.62%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 55/120
+Learning rate: 0.001161
+Train Loss: 1.6921, Train Acc: 47.72%
+Val Loss: 1.3565, Val Acc: 61.08%
+
+Epoch 56/120
+Learning rate: 0.001135
+Train Loss: 1.6443, Train Acc: 48.51%
+Val Loss: 1.3643, Val Acc: 62.04%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 57/120
+Learning rate: 0.001109
+Train Loss: 1.5890, Train Acc: 50.29%
+Val Loss: 1.3380, Val Acc: 62.34%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 58/120
+Learning rate: 0.001083
+Train Loss: 1.6350, Train Acc: 48.36%
+Val Loss: 1.3513, Val Acc: 62.15%
+
+Epoch 59/120
+Learning rate: 0.001057
+Train Loss: 1.6195, Train Acc: 49.58%
+Val Loss: 1.3626, Val Acc: 61.99%
+
+Epoch 60/120
+Learning rate: 0.001031
+Train Loss: 1.6346, Train Acc: 49.68%
+Val Loss: 1.3526, Val Acc: 62.64%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 61/120
+Learning rate: 0.001005
+Train Loss: 1.6358, Train Acc: 49.59%
+Val Loss: 1.3578, Val Acc: 62.47%
+
+Epoch 62/120
+Learning rate: 0.000979
+Train Loss: 1.6036, Train Acc: 50.55%
+Val Loss: 1.3582, Val Acc: 63.21%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 63/120
+Learning rate: 0.000953
+Train Loss: 1.6293, Train Acc: 47.23%
+Val Loss: 1.3371, Val Acc: 63.67%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 64/120
+Learning rate: 0.000927
+Train Loss: 1.6137, Train Acc: 51.25%
+Val Loss: 1.3226, Val Acc: 63.12%
+
+Epoch 65/120
+Learning rate: 0.000901
+Train Loss: 1.6068, Train Acc: 50.99%
+Val Loss: 1.3269, Val Acc: 63.51%
+
+Epoch 66/120
+Learning rate: 0.000875
+Train Loss: 1.6320, Train Acc: 50.02%
+Val Loss: 1.3182, Val Acc: 63.53%
+
+Epoch 67/120
+Learning rate: 0.000849
+Train Loss: 1.5974, Train Acc: 48.01%
+Val Loss: 1.3221, Val Acc: 62.97%
+
+Epoch 68/120
+Learning rate: 0.000824
+Train Loss: 1.6063, Train Acc: 50.48%
+Val Loss: 1.3095, Val Acc: 64.09%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 69/120
+Learning rate: 0.000798
+Train Loss: 1.5750, Train Acc: 54.04%
+Val Loss: 1.3011, Val Acc: 65.06%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 70/120
+Learning rate: 0.000773
+Train Loss: 1.5953, Train Acc: 49.35%
+Val Loss: 1.3008, Val Acc: 64.49%
+
+Epoch 71/120
+Learning rate: 0.000747
+Train Loss: 1.5578, Train Acc: 52.25%
+Val Loss: 1.3125, Val Acc: 64.79%
+
+Epoch 72/120
+Learning rate: 0.000722
+Train Loss: 1.5449, Train Acc: 51.85%
+Val Loss: 1.2848, Val Acc: 65.32%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 73/120
+Learning rate: 0.000698
+Train Loss: 1.5803, Train Acc: 51.40%
+Val Loss: 1.3233, Val Acc: 64.66%
+
+Epoch 74/120
+Learning rate: 0.000673
+Train Loss: 1.5694, Train Acc: 53.17%
+Val Loss: 1.2943, Val Acc: 65.10%
+
+Epoch 75/120
+Learning rate: 0.000648
+Train Loss: 1.5393, Train Acc: 54.30%
+Val Loss: 1.2818, Val Acc: 65.29%
+
+Epoch 76/120
+Learning rate: 0.000624
+Train Loss: 1.5795, Train Acc: 51.54%
+Val Loss: 1.2891, Val Acc: 65.21%
+
+Epoch 77/120
+Learning rate: 0.000600
+Train Loss: 1.5643, Train Acc: 51.80%
+Val Loss: 1.2723, Val Acc: 65.95%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 78/120
+Learning rate: 0.000577
+Train Loss: 1.5986, Train Acc: 50.94%
+Val Loss: 1.2934, Val Acc: 65.13%
+
+Epoch 79/120
+Learning rate: 0.000553
+Train Loss: 1.5295, Train Acc: 54.71%
+Val Loss: 1.2810, Val Acc: 66.03%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 80/120
+Learning rate: 0.000530
+Train Loss: 1.5460, Train Acc: 52.21%
+Val Loss: 1.2762, Val Acc: 65.72%
+
+Epoch 81/120
+Learning rate: 0.000507
+Train Loss: 1.5620, Train Acc: 50.97%
+Val Loss: 1.2559, Val Acc: 66.90%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 82/120
+Learning rate: 0.000485
+Train Loss: 1.5389, Train Acc: 52.92%
+Val Loss: 1.2658, Val Acc: 66.14%
+
+Epoch 83/120
+Learning rate: 0.000463
+Train Loss: 1.5635, Train Acc: 52.91%
+Val Loss: 1.2777, Val Acc: 66.32%
+
+Epoch 84/120
+Learning rate: 0.000441
+Train Loss: 1.5663, Train Acc: 51.94%
+Val Loss: 1.2629, Val Acc: 66.46%
+
+Epoch 85/120
+Learning rate: 0.000420
+Train Loss: 1.5522, Train Acc: 53.52%
+Val Loss: 1.2591, Val Acc: 66.56%
+
+Epoch 86/120
+Learning rate: 0.000399
+Train Loss: 1.5388, Train Acc: 51.66%
+Val Loss: 1.2656, Val Acc: 66.61%
+
+Epoch 87/120
+Learning rate: 0.000379
+Train Loss: 1.5344, Train Acc: 53.45%
+Val Loss: 1.2583, Val Acc: 66.84%
+
+Epoch 88/120
+Learning rate: 0.000359
+Train Loss: 1.5533, Train Acc: 51.88%
+Val Loss: 1.2475, Val Acc: 66.98%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 89/120
+Learning rate: 0.000339
+Train Loss: 1.5478, Train Acc: 54.56%
+Val Loss: 1.2418, Val Acc: 67.32%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 90/120
+Learning rate: 0.000320
+Train Loss: 1.5190, Train Acc: 53.59%
+Val Loss: 1.2428, Val Acc: 67.46%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 91/120
+Learning rate: 0.000301
+Train Loss: 1.5125, Train Acc: 53.35%
+Val Loss: 1.2376, Val Acc: 66.98%
+
+Epoch 92/120
+Learning rate: 0.000283
+Train Loss: 1.5101, Train Acc: 55.03%
+Val Loss: 1.2316, Val Acc: 67.64%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 93/120
+Learning rate: 0.000266
+Train Loss: 1.5168, Train Acc: 55.31%
+Val Loss: 1.2348, Val Acc: 67.16%
+
+Epoch 94/120
+Learning rate: 0.000248
+Train Loss: 1.5340, Train Acc: 55.08%
+Val Loss: 1.2323, Val Acc: 67.59%
+
+Epoch 95/120
+Learning rate: 0.000232
+Train Loss: 1.4772, Train Acc: 57.24%
+Val Loss: 1.2335, Val Acc: 67.67%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 96/120
+Learning rate: 0.000216
+Train Loss: 1.5141, Train Acc: 55.48%
+Val Loss: 1.2338, Val Acc: 67.47%
+
+Epoch 97/120
+Learning rate: 0.000200
+Train Loss: 1.5138, Train Acc: 54.60%
+Val Loss: 1.2273, Val Acc: 67.78%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 98/120
+Learning rate: 0.000185
+Train Loss: 1.5099, Train Acc: 53.25%
+Val Loss: 1.2365, Val Acc: 68.06%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 99/120
+Learning rate: 0.000171
+Train Loss: 1.5058, Train Acc: 54.08%
+Val Loss: 1.2437, Val Acc: 67.74%
+
+Epoch 100/120
+Learning rate: 0.000157
+Train Loss: 1.5325, Train Acc: 52.96%
+Val Loss: 1.2260, Val Acc: 67.61%
+
+Epoch 101/120
+Learning rate: 0.000143
+Train Loss: 1.5096, Train Acc: 52.61%
+Val Loss: 1.2270, Val Acc: 67.78%
+
+Epoch 102/120
+Learning rate: 0.000131
+Train Loss: 1.4674, Train Acc: 56.30%
+Val Loss: 1.2204, Val Acc: 67.97%
+
+Epoch 103/120
+Learning rate: 0.000118
+Train Loss: 1.4561, Train Acc: 57.43%
+Val Loss: 1.2199, Val Acc: 68.21%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 104/120
+Learning rate: 0.000107
+Train Loss: 1.5138, Train Acc: 54.83%
+Val Loss: 1.2191, Val Acc: 68.40%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 105/120
+Learning rate: 0.000096
+Train Loss: 1.4776, Train Acc: 56.46%
+Val Loss: 1.2195, Val Acc: 68.33%
+
+Epoch 106/120
+Learning rate: 0.000086
+Train Loss: 1.4765, Train Acc: 57.07%
+Val Loss: 1.2210, Val Acc: 68.45%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 107/120
+Learning rate: 0.000076
+Train Loss: 1.4926, Train Acc: 54.99%
+Val Loss: 1.2181, Val Acc: 68.22%
+
+Epoch 108/120
+Learning rate: 0.000067
+Train Loss: 1.5007, Train Acc: 54.03%
+Val Loss: 1.2209, Val Acc: 68.26%
+
+Epoch 109/120
+Learning rate: 0.000059
+Train Loss: 1.5102, Train Acc: 56.05%
+Val Loss: 1.2193, Val Acc: 68.42%
+
+Epoch 110/120
+Learning rate: 0.000051
+Train Loss: 1.4905, Train Acc: 57.35%
+Val Loss: 1.2185, Val Acc: 68.44%
+
+Epoch 111/120
+Learning rate: 0.000044
+Train Loss: 1.4396, Train Acc: 56.53%
+Val Loss: 1.2123, Val Acc: 68.57%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 112/120
+Learning rate: 0.000037
+Train Loss: 1.4693, Train Acc: 57.41%
+Val Loss: 1.2150, Val Acc: 68.64%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 113/120
+Learning rate: 0.000032
+Train Loss: 1.4944, Train Acc: 54.72%
+Val Loss: 1.2150, Val Acc: 68.62%
+
+Epoch 114/120
+Learning rate: 0.000027
+Train Loss: 1.5123, Train Acc: 54.07%
+Val Loss: 1.2155, Val Acc: 68.60%
+
+Epoch 115/120
+Learning rate: 0.000022
+Train Loss: 1.4760, Train Acc: 56.23%
+Val Loss: 1.2126, Val Acc: 68.64%
+
+Epoch 116/120
+Learning rate: 0.000019
+Train Loss: 1.5056, Train Acc: 55.29%
+Val Loss: 1.2149, Val Acc: 68.65%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Epoch 117/120
+Learning rate: 0.000015
+Train Loss: 1.4808, Train Acc: 54.78%
+Val Loss: 1.2141, Val Acc: 68.63%
+
+Epoch 118/120
+Learning rate: 0.000013
+Train Loss: 1.4909, Train Acc: 54.85%
+Val Loss: 1.2146, Val Acc: 68.63%
+
+Epoch 119/120
+Learning rate: 0.000011
+Train Loss: 1.4842, Train Acc: 55.93%
+Val Loss: 1.2143, Val Acc: 68.59%
+
+Epoch 120/120
+Learning rate: 0.000010
+Train Loss: 1.4759, Train Acc: 56.13%
+Val Loss: 1.2142, Val Acc: 68.66%
+New best model! Saving to ./checkpoints/best_model.pth
+
+Training completed! Best validation accuracy: 68.66%
+
+Training curves saved to './plots/training_curves.png'
+Training curves uploaded to Neptune
+[neptune] [info   ] Shutting down background jobs, please wait a moment...
+[neptune] [info   ] Done!
+[neptune] [info   ] Waiting for the remaining 26 operations to synchronize with Neptune. Do not kill this process.
+[neptune] [info   ] All 26 operations synced, thanks for waiting!
+[neptune] [info   ] Explore the metadata in the Neptune app: https://app.neptune.ai/31K-ML-Real/381K-Vision-GNN-Project/e/KVIS-17/metadata
+Neptune run stopped successfully
+==========================================
+End Time: Wed Dec  3 06:02:46 AM CST 2025
+Test completed successfully!
+==========================================

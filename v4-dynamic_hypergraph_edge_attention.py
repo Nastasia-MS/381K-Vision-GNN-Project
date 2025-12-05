@@ -9,7 +9,7 @@ import torch
 import torch.nn as nn
 import torchvision.transforms as T
 import torch.nn.functional as F
-from torchvision.datasets import CIFAR10
+from torchvision.datasets import CIFAR100
 from torch.utils.data import DataLoader
 from torch_geometric.nn import HypergraphConv, AttentionalAggregation
 import argparse
@@ -582,7 +582,7 @@ class LearnablePatchHyperViG(nn.Module):
         self.num_blocks = num_blocks
         self.k = k
 
-        # removed for now due to crazy slow training rate
+                # removed for now due to crazy slow training rate
         # self.patch_extractor = LearnablePatchExtractor(num_patches=num_patches)
 
         self.input_proj = nn.Linear(3 * 8 * 8, hidden)
@@ -903,7 +903,7 @@ def validate(model, loader, criterion, device):
 
 def main():
     parser = argparse.ArgumentParser(description='Train Dynamic Hypergraph Edge Attention Model')
-    parser.add_argument('--data_dir', type=str, default='./data', help='Directory for CIFAR10 data')
+    parser.add_argument('--data_dir', type=str, default='./data', help='Directory for CIFAR100 data')
     parser.add_argument('--batch_size', type=int, default=256, help='Batch size')
     parser.add_argument('--epochs', type=int, default=120, help='Number of epochs')
     parser.add_argument('--lr', type=float, default=0.002, help='Learning rate')
@@ -962,7 +962,7 @@ def main():
                     "batch_size": args.batch_size,
                     "hidden_dim": args.hidden,
                     "num_patches": args.num_patches,
-                    "num_classes": 10,
+                    "num_classes": 100,
                     "dropout": args.dropout,
                     "max_epochs": args.epochs,
                     "scheduler_type": "CosineAnnealingLR",
@@ -998,9 +998,9 @@ def main():
         )
     ])
     
-    print("Loading CIFAR10 dataset...")
-    train_dataset = CIFAR10(root=args.data_dir, train=True, download=True, transform=train_transform)
-    test_dataset = CIFAR10(root=args.data_dir, train=False, download=True, transform=test_transform)
+    print("Loading CIFAR100 dataset...")
+    train_dataset = CIFAR100(root=args.data_dir, train=True, download=True, transform=train_transform)
+    test_dataset = CIFAR100(root=args.data_dir, train=False, download=True, transform=test_transform)
     
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
@@ -1013,7 +1013,7 @@ def main():
     # Slightly reduce model capacity to reduce overfitting
     model = LearnablePatchHyperViG(
         hidden=args.hidden,
-        num_classes=10,
+        num_classes=100,
         num_blocks=5,  # Reduced from 6 to 5
         dropout=args.dropout,
         k=8

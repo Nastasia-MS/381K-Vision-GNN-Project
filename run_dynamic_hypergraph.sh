@@ -4,8 +4,9 @@
 #SBATCH -o Output/out_%j.txt
 #SBATCH -e Error/error_%j.txt
 #SBATCH -p gg                                              # Grace Hopper GPU partition
-#SBATCH -N 6
-#SBATCH -n 6
+#SBATCH -N 1                                               # Use 1 node (not 6)
+#SBATCH -n 1                                               # Use 1 task
+#SBATCH --gres=gpu:1                                       # Request 1 GPU
 #SBATCH -t 24:00:00
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user='rl37272@my.utexas.edu'

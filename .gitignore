@@ -5,6 +5,9 @@ data/
 *.tar.gz
 *.zip
 
+# Vision_GNN - exclude entirely (it's a separate git repo, folder exists locally but not tracked)
+Vision_GNN/
+
 # Python cache
 __pycache__/
 *.pyc

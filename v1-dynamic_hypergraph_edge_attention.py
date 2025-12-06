@@ -14,7 +14,7 @@ import torch
 import torch.nn as nn
 import torchvision.transforms as T
 import torch.nn.functional as F
-from torchvision.datasets import CIFAR100
+from torchvision.datasets import CIFAR10
 from torch.utils.data import DataLoader
 from torch_geometric.nn import HypergraphConv, AttentionalAggregation
 import matplotlib
@@ -128,13 +128,16 @@ def image_to_dynamic_hypergraph_edge_attention(images, k_spatial=3, k_feature=3,
     return x, edge_index, edge_weight, batch_map
 
 class EdgeAttention(nn.Module):
-  def __init__(self, in_dim, hidden=64):
+  def __init__(self, in_dim, hidden=128):
     super().__init__()
     self.mlp = nn.Sequential(
         nn.Linear(in_dim*2, hidden),
         nn.ReLU(),
         nn.Dropout(0.1),
-        nn.Linear(hidden, 1)
+        nn.Linear(hidden, hidden // 2),
+        nn.ReLU(),
+        nn.Dropout(0.1),
+        nn.Linear(hidden // 2, 1)
     )
     # Initialize weights properly
     self._init_weights()
@@ -163,36 +166,50 @@ class EdgeAttention(nn.Module):
     return alpha
 
 class HyperVigClassifier(nn.Module):
-  def __init__(self, in_channels, hidden, num_classes):
+  def __init__(self, in_channels, hidden, num_classes, num_conv_layers=5, num_ffn_layers=2):
     super().__init__()
     self.input_proj = nn.Linear(in_channels, hidden)
-    self.conv1 = HypergraphConv(hidden, hidden)
-    self.norm1 = nn.LayerNorm(hidden)
-    self.conv2 = HypergraphConv(hidden, hidden)
-    self.norm2 = nn.LayerNorm(hidden)
-    self.conv3 = HypergraphConv(hidden, hidden)
-    self.norm3 = nn.LayerNorm(hidden)
+    
+    # Add more HypergraphConv layers (5 instead of 3)
+    self.conv_layers = nn.ModuleList([
+        HypergraphConv(hidden, hidden) for _ in range(num_conv_layers)
+    ])
+    self.norm_layers = nn.ModuleList([
+        nn.LayerNorm(hidden) for _ in range(num_conv_layers)
+    ])
     self.dropout = nn.Dropout(0.1) # changed from 0.3 to 0.1 
     
-    # More stable feedforward layer
-    self.ff = nn.Sequential(
-        nn.Linear(hidden, hidden * 2),
-        nn.LayerNorm(hidden * 2),
-        nn.ReLU(), 
-        nn.Dropout(0.1), # changed from 0.2 to 0.1 
-        nn.Linear(hidden * 2, hidden)
-    )
+    # Stack multiple FFN layers for more capacity
+    self.ffn_layers = nn.ModuleList([
+        nn.Sequential(
+            nn.Linear(hidden, hidden * 2),
+            nn.LayerNorm(hidden * 2),
+            nn.ReLU(), 
+            nn.Dropout(0.1), # changed from 0.2 to 0.1 
+            nn.Linear(hidden * 2, hidden)
+        ) for _ in range(num_ffn_layers)
+    ])
+    self.ffn_norms = nn.ModuleList([
+        nn.LayerNorm(hidden) for _ in range(num_ffn_layers)
+    ])
 
+    # Deeper pooling gate network
     self.pool = AttentionalAggregation(gate_nn=nn.Sequential(
         nn.Linear(hidden, hidden), 
         nn.ReLU(),  
         nn.Dropout(0.1),
-        nn.Linear(hidden, 1)
+        nn.Linear(hidden, hidden // 2),
+        nn.ReLU(),
+        nn.Dropout(0.1),
+        nn.Linear(hidden // 2, 1)
     ))
-    # Added dropout to classifier 
+    # Deeper classifier with intermediate layer
     self.classifier = nn.Sequential(
         nn.Dropout(0.2),
-        nn.Linear(hidden, num_classes)
+        nn.Linear(hidden, hidden // 2),
+        nn.ReLU(),
+        nn.Dropout(0.2),
+        nn.Linear(hidden // 2, num_classes)
     )
     
     # Initialize weights properly
@@ -208,13 +225,21 @@ class HyperVigClassifier(nn.Module):
   def forward(self, x, edge_index, edge_weight, batch_map):
     x = self.input_proj(x)  # match dimensions to hidden
     
-    for conv, norm in [(self.conv1, self.norm1), (self.conv2, self.norm2), (self.conv3, self.norm3)]:
+    # Apply multiple HypergraphConv layers with residual connections
+    for conv, norm in zip(self.conv_layers, self.norm_layers):
         x_res = x
         x = conv(x, edge_index, edge_weight)
         x = norm(x)
         x = F.relu(x)  
         x = self.dropout(x) + x_res
-    x = self.ff(x)
+    
+    # Apply multiple FFN layers with residual connections
+    for ffn, norm in zip(self.ffn_layers, self.ffn_norms):
+        x_res = x
+        x = ffn(x)
+        x = norm(x)
+        x = self.dropout(x) + x_res
+    
     out = self.pool(x, batch_map)
     out = self.classifier(out)
     return out
@@ -235,8 +260,10 @@ try:
         "learning_rate": 0.002, # changed from 0.001 to 0.002 to increase training time
         "weight_decay": 1e-5,
         "batch_size": 16,
-        "hidden_dim": 256,
-        "edge_attn_hidden": 64,
+        "hidden_dim": 512,
+        "edge_attn_hidden": 128,
+        "num_conv_layers": 5,
+        "num_ffn_layers": 2,
         "num_classes": 10,
         "patch_size": 4, # changed from 8 to 4 
         "stem_channels": 64,
@@ -324,10 +351,16 @@ patch_size = 4  # Changed from 8 to 4 to prevent underfitting (more nodes per im
 stem_channels = 64  # ConvStem outputs 64 channels
 in_channels = stem_channels * patch_size * patch_size  # 64 * 4 * 4 = 1024
 
-hidden_dim = 256
+hidden_dim = 512
 
-model = HyperVigClassifier(in_channels=in_channels, hidden=hidden_dim, num_classes=10).to(device)
-edge_attn = EdgeAttention(in_dim=in_channels, hidden=64).to(device)
+model = HyperVigClassifier(
+    in_channels=in_channels, 
+    hidden=hidden_dim, 
+    num_classes=10,
+    num_conv_layers=5,  # Increased from 3 to 5
+    num_ffn_layers=2    # Stack 2 FFN layers
+).to(device)
+edge_attn = EdgeAttention(in_dim=in_channels, hidden=128).to(device)  # Increased from 64 to 128
 
 # Lower learning rate and add weight decay for stability
 # Include stem parameters in optimizer

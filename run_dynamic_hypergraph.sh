@@ -3,7 +3,7 @@
 #SBATCH -J dynamic_hypergraph_cifar100
 #SBATCH -o Output/out_%j.txt
 #SBATCH -e Error/error_%j.txt
-#SBATCH -p gp                                              # Grace Hopper GPU partition
+#SBATCH -p gh                                              # Grace Hopper GPU partition
 #SBATCH -N 1                                               # Use 1 node (required for GPU allocation)
 #SBATCH -n 1                                               # Use 1 task                                 # Request 1 GPU per node (alternative syntax)
 #SBATCH -t 00:10:00

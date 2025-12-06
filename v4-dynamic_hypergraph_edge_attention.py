@@ -9,7 +9,7 @@ import torch
 import torch.nn as nn
 import torchvision.transforms as T
 import torch.nn.functional as F
-from torchvision.datasets import CIFAR10
+from torchvision.datasets import CIFAR100
 from torch.utils.data import DataLoader
 from torch_geometric.nn import HypergraphConv, AttentionalAggregation
 import argparse
@@ -856,8 +856,13 @@ def train_epoch(model, loader, optimizer, criterion, device, mixup_alpha=0.8, cu
 
         loss.backward()
 
-        # Gradient clipping for stability
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+        # Gradient clipping for stability (increased threshold for CIFAR-100)
+        # CIFAR-100 needs larger gradients due to more complex class boundaries
+        grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)
+        
+        # Check for vanishing gradients
+        if grad_norm < 1e-6:
+            print(f"Warning: Very small gradient norm ({grad_norm:.6f}), model may have collapsed")
 
         optimizer.step()
 
@@ -903,19 +908,19 @@ def validate(model, loader, criterion, device):
 
 def main():
     parser = argparse.ArgumentParser(description='Train Dynamic Hypergraph Edge Attention Model')
-    parser.add_argument('--data_dir', type=str, default='./data', help='Directory for CIFAR10 data')
+    parser.add_argument('--data_dir', type=str, default='./data', help='Directory for CIFAR100 data')
     parser.add_argument('--batch_size', type=int, default=256, help='Batch size')
     parser.add_argument('--epochs', type=int, default=120, help='Number of epochs')
-    parser.add_argument('--lr', type=float, default=0.002, help='Learning rate')
+    parser.add_argument('--lr', type=float, default=0.001, help='Learning rate (reduced for CIFAR-100)')
     parser.add_argument('--weight_decay', type=float, default=0.01, help='Weight decay')
     parser.add_argument('--hidden', type=int, default=320, help='Hidden dimension')
     parser.add_argument('--num_patches', type=int, default=16, help='Number of patches')
     parser.add_argument('--dropout', type=float, default=0.3, help='Dropout rate')
-    parser.add_argument('--label_smoothing', type=float, default=0.1, help='Label smoothing factor')
+    parser.add_argument('--label_smoothing', type=float, default=0.0, help='Label smoothing factor (disabled for CIFAR-100)')
     parser.add_argument('--early_stop_patience', type=int, default=15, help='Early stopping patience')
     parser.add_argument('--mixup_alpha', type=float, default=0.8, help='MixUp alpha parameter')
     parser.add_argument('--cutmix_alpha', type=float, default=1.0, help='CutMix alpha parameter')
-    parser.add_argument('--mixup_prob', type=float, default=0.5, help='Probability of applying MixUp/CutMix')
+    parser.add_argument('--mixup_prob', type=float, default=0.3, help='Probability of applying MixUp/CutMix (reduced for CIFAR-100)')
     parser.add_argument('--num_workers', type=int, default=2, help='Number of data loader workers')
     parser.add_argument('--save_dir', type=str, default='./checkpoints', help='Directory to save checkpoints')
     parser.add_argument('--save_freq', type=int, default=10, help='Save checkpoint every N epochs')
@@ -962,7 +967,7 @@ def main():
                     "batch_size": args.batch_size,
                     "hidden_dim": args.hidden,
                     "num_patches": args.num_patches,
-                    "num_classes": 10,
+                    "num_classes": 100,
                     "dropout": args.dropout,
                     "max_epochs": args.epochs,
                     "scheduler_type": "CosineAnnealingLR",
@@ -998,9 +1003,9 @@ def main():
         )
     ])
     
-    print("Loading CIFAR10 dataset...")
-    train_dataset = CIFAR10(root=args.data_dir, train=True, download=True, transform=train_transform)
-    test_dataset = CIFAR10(root=args.data_dir, train=False, download=True, transform=test_transform)
+    print("Loading CIFAR100 dataset...")
+    train_dataset = CIFAR100(root=args.data_dir, train=True, download=True, transform=train_transform)
+    test_dataset = CIFAR100(root=args.data_dir, train=False, download=True, transform=test_transform)
     
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
@@ -1010,11 +1015,12 @@ def main():
 
     # Model
     print("Initializing model...")
-    # Slightly reduce model capacity to reduce overfitting
+    # Increase model capacity for CIFAR-100 (100 classes vs 10 classes)
+    # CIFAR-100 needs more capacity to learn 10x more class boundaries
     model = LearnablePatchHyperViG(
         hidden=args.hidden,
-        num_classes=10,
-        num_blocks=5,  # Reduced from 6 to 5
+        num_classes=100,
+        num_blocks=6,  # Increased from 5 to 6 for CIFAR-100
         dropout=args.dropout,
         k=8
     ).to(device)

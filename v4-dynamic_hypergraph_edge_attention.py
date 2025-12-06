@@ -605,7 +605,7 @@ class LearnablePatchHyperViG(nn.Module):
         self.classifier = nn.Sequential(
             nn.Linear(hidden, hidden),
             nn.ReLU(),
-            nn.Dropout(0.5),
+            nn.Dropout(0.3),  # Reduced from 0.5 to 0.3 to address underfitting
             nn.Linear(hidden, num_classes)
         )
 
@@ -910,17 +910,17 @@ def main():
     parser = argparse.ArgumentParser(description='Train Dynamic Hypergraph Edge Attention Model')
     parser.add_argument('--data_dir', type=str, default='./data', help='Directory for CIFAR100 data')
     parser.add_argument('--batch_size', type=int, default=256, help='Batch size')
-    parser.add_argument('--epochs', type=int, default=120, help='Number of epochs')
-    parser.add_argument('--lr', type=float, default=0.001, help='Learning rate (reduced for CIFAR-100)')
+    parser.add_argument('--epochs', type=int, default=150, help='Number of epochs')
+    parser.add_argument('--lr', type=float, default=0.0015, help='Learning rate (increased for better convergence)')
     parser.add_argument('--weight_decay', type=float, default=0.01, help='Weight decay')
-    parser.add_argument('--hidden', type=int, default=320, help='Hidden dimension')
+    parser.add_argument('--hidden', type=int, default=384, help='Hidden dimension (increased for CIFAR-100)')
     parser.add_argument('--num_patches', type=int, default=16, help='Number of patches')
-    parser.add_argument('--dropout', type=float, default=0.3, help='Dropout rate')
+    parser.add_argument('--dropout', type=float, default=0.2, help='Dropout rate (reduced to address underfitting)')
     parser.add_argument('--label_smoothing', type=float, default=0.0, help='Label smoothing factor (disabled for CIFAR-100)')
     parser.add_argument('--early_stop_patience', type=int, default=15, help='Early stopping patience')
     parser.add_argument('--mixup_alpha', type=float, default=0.8, help='MixUp alpha parameter')
     parser.add_argument('--cutmix_alpha', type=float, default=1.0, help='CutMix alpha parameter')
-    parser.add_argument('--mixup_prob', type=float, default=0.3, help='Probability of applying MixUp/CutMix (reduced for CIFAR-100)')
+    parser.add_argument('--mixup_prob', type=float, default=0.2, help='Probability of applying MixUp/CutMix (reduced to address underfitting)')
     parser.add_argument('--num_workers', type=int, default=2, help='Number of data loader workers')
     parser.add_argument('--save_dir', type=str, default='./checkpoints', help='Directory to save checkpoints')
     parser.add_argument('--save_freq', type=int, default=10, help='Save checkpoint every N epochs')
@@ -939,10 +939,23 @@ def main():
     else:
         device = args.device
     
+    # Diagnostic: Check CUDA availability
+    print(f"CUDA available: {torch.cuda.is_available()}")
+    if torch.cuda.is_available():
+        print(f"CUDA device count: {torch.cuda.device_count()}")
+        for i in range(torch.cuda.device_count()):
+            print(f"  GPU {i}: {torch.cuda.get_device_name(i)}")
+    
     print(f"Using device: {device}")
     if device == 'cuda':
         print(f"GPU: {torch.cuda.get_device_name(0)}")
         print(f"CUDA Version: {torch.version.cuda}")
+    else:
+        print("WARNING: Running on CPU! Training will be very slow.")
+        print("If you expected GPU, check:")
+        print("  1. SLURM script GPU allocation")
+        print("  2. CUDA module loaded (module load cuda/12.8)")
+        print("  3. PyTorch CUDA support installed")
 
     # Create save directories
     os.makedirs(args.save_dir, exist_ok=True)
@@ -1020,7 +1033,7 @@ def main():
     model = LearnablePatchHyperViG(
         hidden=args.hidden,
         num_classes=100,
-        num_blocks=6,  # Increased from 5 to 6 for CIFAR-100
+        num_blocks=8,  # Increased from 6 to 8 for better capacity on CIFAR-100
         dropout=args.dropout,
         k=8
     ).to(device)

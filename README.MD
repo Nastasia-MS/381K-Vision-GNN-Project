@@ -6,6 +6,10 @@ A research project exploring Vision Graph Neural Networks (GNNs) using dynamic h
 
 This project implements a series of Vision GNN models that convert images into graph structures and process them using hypergraph neural networks. The work progresses through multiple versions (V0-V4), each building upon the previous iteration with enhanced capabilities.
 
+## Authors
+- Nastasia Maldei-Stumm [n.maldeistumm@utexas.edu]
+- Rasmus Laansalu [s215160@dtu.dk]
+
 ## Version Progression
 
 The project follows a linear progression through five versions, organized into three milestones:

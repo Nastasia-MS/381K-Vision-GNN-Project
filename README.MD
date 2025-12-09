@@ -387,9 +387,9 @@ If you use this code in your research, please cite:
 ```bibtex
 @misc{vision-gnn-project,
   title={381K Vision GNN Project: Dynamic Hypergraph Edge Attention},
-  author={Your Name},
-  year={2024},
-  url={https://github.com/your-repo}
+  author={Maldei-Stumm Nastasia and Laansalu Rasmus},
+  year={2025},
+  url={https://github.com/Nastasia-MS/381K-Vision-GNN-Project}
 }
 ```
 
@@ -397,7 +397,6 @@ If you use this code in your research, please cite:
 ## Acknowledgments
 - Radu Marculescu: Professor and the Laura Jennings Turner Chair in Engineering in the Department of Electrical and Computer Engineering at The University of Texas at Austin
 - Mustafa Munir: Ph.D. Student, Efficient Computer Vision, Generative AI
-
 - Vision GNN library: [https://github.com/jichengyuan/Vision_GNN](https://github.com/jichengyuan/Vision_GNN)
 - TACC for computational resources
 - Neptune.ai for experiment tracking

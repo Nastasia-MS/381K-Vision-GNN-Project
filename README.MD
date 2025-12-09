@@ -7,6 +7,7 @@ A research project exploring Vision Graph Neural Networks (GNNs) using dynamic h
 This project implements a series of Vision GNN models that convert images into graph structures and process them using hypergraph neural networks. The work progresses through multiple versions (V0-V4), each building upon the previous iteration with enhanced capabilities.
 
 ## Authors
+
 - Nastasia Maldei-Stumm [n.maldeistumm@utexas.edu]
 - Rasmus Laansalu [s215160@dtu.dk]
 
@@ -15,14 +16,17 @@ This project implements a series of Vision GNN models that convert images into g
 The project follows a linear progression through five versions, organized into three milestones:
 
 ### Milestone 1: Foundation (V0 - V2)
+
 - **V0 - Image to Graph**: Initial implementation focusing on converting images to graph structures
 - **V1 - Dynamic Hypergraph**: Introduction of dynamic hypergraph construction
 - **V2 - Hypergraph VIG**: Integration with Vision GNN (ViG) architecture
 
 ### Milestone 2: Edge Attention (V3)
+
 - **V3 - Dynamic Hypergraph Edge Attention**: Implementation of edge attention mechanisms in hypergraph neural networks
 
 ### Milestone 3: Advanced Training (V4)
+
 - **V4 - Dynamic Hypergraph Edge Attention (Enhanced)**: Final version with improved training procedures, data augmentation, and monitoring capabilities
 
 Each version is available both as a Jupyter notebook (for exploration and development) and as a Python script (for training on TACC).
@@ -395,11 +399,16 @@ If you use this code in your research, please cite:
 
 
 ## Acknowledgments
+
 - Radu Marculescu: Professor and the Laura Jennings Turner Chair in Engineering in the Department of Electrical and Computer Engineering at The University of Texas at Austin
 - Mustafa Munir: Ph.D. Student, Efficient Computer Vision, Generative AI
 - Vision GNN library: [https://github.com/jichengyuan/Vision_GNN](https://github.com/jichengyuan/Vision_GNN)
 - TACC for computational resources
 - Neptune.ai for experiment tracking
+
+## License
+
+This project is licensed under the MIT License. See the [LICENSE](./LICENSE) file for details.
 
 ## Contact
 
